@@ -1,0 +1,4 @@
+# Runtime deps for the Deco REST API (deco_rest.py)
+fastapi>=0.110
+uvicorn>=0.29
+paramiko>=3.4

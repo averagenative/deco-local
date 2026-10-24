@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en" data-theme="terminal">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#080c10">
+  <title>Deco Mesh</title>
+  <link rel="icon" type="image/svg+xml" href="web/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script>
+    try {
+      const t = { dark: 'terminal', light: 'daylight' }[localStorage.getItem('deco-theme')] || localStorage.getItem('deco-theme');
+      if (t) document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+  <style>
+    /* Themes: Terminal (default), Midnight, Amber CRT, Dracula (dark) and Daylight (light). */
+    :root, :root[data-theme="terminal"] {
+      --bg: #080c10;
+      --panel: rgba(255, 255, 255, 0.035);
+      --panel-solid: #0e151b;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #c8d6e0;
+      --strong: #eef5fa;
+      --muted: #7d909e;
+      --accent: #00d1ff;
+      --accent-dim: rgba(0, 209, 255, 0.12);
+      --accent-border: rgba(0, 209, 255, 0.4);
+      --on-accent: #031018;
+      --title: #00ff41;
+      --title-glow: 0 0 6px #00ff41, 0 0 14px rgba(0, 255, 65, 0.55), 0 0 30px rgba(0, 255, 65, 0.25);
+      --prompt: #3f8a46;
+      --ok: #2ee26b;
+      --warn: #ffb020;
+      --bad: #ff5a6a;
+      --input: rgba(255, 255, 255, 0.05);
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+      --glow-bg: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(0, 255, 65, 0.05) 0%, transparent 60%);
+      color-scheme: dark;
+    }
+    :root[data-theme="midnight"] {
+      --bg: #1a1b26;
+      --panel: rgba(255, 255, 255, 0.03);
+      --panel-solid: #20222f;
+      --border: rgba(169, 177, 214, 0.15);
+      --text: #c0caf5;
+      --strong: #e6e9ff;
+      --muted: #8a93bd;
+      --accent: #7aa2f7;
+      --accent-dim: rgba(122, 162, 247, 0.14);
+      --accent-border: rgba(122, 162, 247, 0.45);
+      --on-accent: #11131c;
+      --title: #bb9af7;
+      --title-glow: 0 0 10px rgba(187, 154, 247, 0.45);
+      --prompt: #6b74a0;
+      --ok: #9ece6a;
+      --warn: #e0af68;
+      --bad: #f7768e;
+      --input: rgba(255, 255, 255, 0.04);
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      --glow-bg: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(122, 162, 247, 0.08) 0%, transparent 60%);
+      color-scheme: dark;
+    }
+    :root[data-theme="amber"] {
+      --bg: #0d0a05;
+      --panel: rgba(255, 176, 0, 0.035);
+      --panel-solid: #17120a;
+      --border: rgba(255, 176, 0, 0.15);
+      --text: #f2d9a6;
+      --strong: #fff1d0;
+      --muted: #ad9161;
+      --accent: #ffb000;
+      --accent-dim: rgba(255, 176, 0, 0.12);
+      --accent-border: rgba(255, 176, 0, 0.45);
+      --on-accent: #1a1100;
+      --title: #ffb000;
+      --title-glow: 0 0 6px #ffb000, 0 0 16px rgba(255, 176, 0, 0.5), 0 0 32px rgba(255, 140, 0, 0.25);
+      --prompt: #93701f;
+      --ok: #b8e05a;
+      --warn: #ff8a3d;
+      --bad: #ff5c4d;
+      --input: rgba(255, 176, 0, 0.05);
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      --glow-bg: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255, 176, 0, 0.06) 0%, transparent 60%);
+      color-scheme: dark;
+    }
+    :root[data-theme="dracula"] {
+      --bg: #191622;
+      --panel: rgba(255, 255, 255, 0.035);
+      --panel-solid: #221e2e;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #e2dcef;
+      --strong: #f8f8f2;
+      --muted: #9d93b8;
+      --accent: #ff79c6;
+      --accent-dim: rgba(255, 121, 198, 0.13);
+      --accent-border: rgba(255, 121, 198, 0.45);
+      --on-accent: #1b0f17;
+      --title: #bd93f9;
+      --title-glow: 0 0 10px rgba(189, 147, 249, 0.5);
+      --prompt: #6f7fb3;
+      --ok: #50fa7b;
+      --warn: #f1fa8c;
+      --bad: #ff5555;
+      --input: rgba(255, 255, 255, 0.04);
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+      --glow-bg: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(189, 147, 249, 0.08) 0%, transparent 60%);
+      color-scheme: dark;
+    }
+    :root[data-theme="daylight"] {
+      --bg: #f3f6f9;
+      --panel: #ffffff;
+      --panel-solid: #ffffff;
+      --border: #d6dee5;
+      --text: #1d2a35;
+      --strong: #0b141b;
+      --muted: #5b6c79;
+      --accent: #0076a8;
+      --accent-dim: rgba(0, 118, 168, 0.1);
+      --accent-border: rgba(0, 118, 168, 0.45);
+      --on-accent: #ffffff;
+      --title: #0a7d33;
+      --title-glow: none;
+      --prompt: #4b7a50;
+      --ok: #13843f;
+      --warn: #9a6200;
+      --bad: #c62536;
+      --input: #ffffff;
+      --shadow: 0 10px 40px rgba(20, 40, 60, 0.18);
+      --glow-bg: none;
+      color-scheme: light;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: var(--bg);
+      background-image: var(--glow-bg);
+      color: var(--text);
+      font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+    .mono { font-family: "Share Tech Mono", ui-monospace, monospace; font-size: 0.92em; }
+    .muted { color: var(--muted); }
+    .small { font-size: 0.82rem; }
+
+    /* header */
+    header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; padding-top: 18px; }
+    .prompt { margin: 0; font: 0.75rem "Share Tech Mono", monospace; color: var(--prompt); letter-spacing: 0.04em; }
+    h1 {
+      margin: 0; font: 400 3rem/1 "VT323", monospace; letter-spacing: 0.12em;
+      color: var(--title); text-shadow: var(--title-glow);
+    }
+    .status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--panel); font-size: 0.85rem; white-space: nowrap;
+    }
+    .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .pill.ok .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .pill.warn .dot { background: var(--warn); animation: pulse 1s infinite alternate; }
+    .pill.bad .dot { background: var(--bad); }
+    .pill.bad { color: var(--bad); border-color: var(--bad); }
+    @keyframes pulse { to { opacity: 0.25; } }
+
+    /* buttons + inputs */
+    button {
+      font: inherit; font-size: 0.85rem; cursor: pointer; border-radius: 8px; padding: 6px 12px;
+      border: 1px solid var(--border); background: var(--panel); color: var(--text);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent-border); background: var(--accent-dim); color: var(--strong); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+    button.primary:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); filter: brightness(1.1); }
+    button.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 600; }
+    button.danger:hover:not(:disabled) { background: var(--bad); color: #fff; filter: brightness(1.1); }
+    button.sm { padding: 3px 9px; font-size: 0.78rem; }
+    button.link-danger:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); background: transparent; }
+    button.busy { position: relative; color: transparent !important; }
+    button.busy::after {
+      content: ""; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid; border-color: var(--on-accent) transparent; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    input, select {
+      font: inherit; font-size: 0.9rem; color: var(--text); background: var(--input);
+      border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; min-width: 0;
+    }
+    select { padding-right: 6px; }
+    select.sm { font-size: 0.8rem; padding: 4px 6px; border-radius: 8px; background: var(--panel); cursor: pointer; }
+    select option { background: var(--panel-solid); color: var(--text); }
+    label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; white-space: nowrap; cursor: pointer; }
+    label.check input { accent-color: var(--accent); }
+
+    /* tabs */
+    nav.tabs { display: flex; gap: 4px; margin: 18px 0 0; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+    nav.tabs button {
+      border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+      padding: 9px 14px; font-size: 0.92rem; color: var(--muted); white-space: nowrap;
+    }
+    nav.tabs button:hover:not(:disabled) { background: none; color: var(--strong); }
+    nav.tabs button[aria-selected="true"] { color: var(--strong); border-bottom-color: var(--accent); }
+    nav.tabs .count { font-size: 0.75rem; color: var(--muted); margin-left: 4px; }
+
+    /* panels */
+    .panel { position: relative; padding: 16px 0 40px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .toolbar input[type="search"] { flex: 1 1 220px; max-width: 360px; }
+    .toolbar .spacer { flex: 1; }
+    .bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; overflow: hidden; opacity: 0; transition: opacity 0.2s; }
+    .bar::before { content: ""; position: absolute; inset: 0; width: 30%; background: var(--accent); animation: slide 1.1s ease-in-out infinite; }
+    .panel.loading .bar { opacity: 1; }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+    .hint { margin: 0 0 10px; font-size: 0.82rem; color: var(--muted); }
+    .empty { padding: 28px 12px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
+    .empty.err { color: var(--bad); border-color: var(--bad); }
+
+    /* tables */
+    .table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel); }
+    table.data { width: 100%; border-collapse: collapse; }
+    table.data th {
+      text-align: left; font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; user-select: none;
+    }
+    table.data th[data-sort] { cursor: pointer; }
+    table.data th[data-sort]:hover { color: var(--strong); }
+    table.data th[aria-sort="ascending"]::after { content: " \2191"; color: var(--accent); }
+    table.data th[aria-sort="descending"]::after { content: " \2193"; color: var(--accent); }
+    table.data td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    table.data tbody tr:last-child td { border-bottom: 0; }
+    table.data tbody tr:hover { background: var(--accent-dim); }
+    table.data tr.off td:not(.actions) { opacity: 0.55; }
+    td.actions { text-align: right; white-space: nowrap; }
+    td.actions button + button { margin-left: 6px; }
+    .name { color: var(--strong); font-weight: 500; overflow-wrap: anywhere; }
+    .sub { display: block; font-size: 0.78rem; color: var(--muted); }
+    .tag {
+      display: inline-block; font-size: 0.7rem; padding: 1px 7px; border-radius: 999px; margin-left: 6px;
+      border: 1px solid var(--border); color: var(--muted); vertical-align: 1px; white-space: nowrap;
+    }
+    .tag.accent { border-color: var(--accent-border); color: var(--accent); }
+    .state { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .state.on::before { background: var(--ok); }
+    .state.down::before { background: var(--bad); }
+    .arrow { color: var(--muted); padding: 0 4px; }
+
+    /* mesh cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+    .card { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 14px 16px; }
+    .card.off { opacity: 0.6; }
+    .card h3 { margin: 0 0 2px; font-size: 1.02rem; color: var(--strong); font-weight: 600; overflow-wrap: anywhere; }
+    .card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 12px 0 0; font-size: 0.85rem; }
+    .card dt { color: var(--muted); }
+    .card dd { margin: 0; overflow-wrap: anywhere; }
+
+    /* dialog */
+    dialog {
+      width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border); border-radius: 14px;
+      background: var(--panel-solid); color: var(--text); box-shadow: var(--shadow);
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+    .dlg-form { padding: 20px; display: grid; gap: 12px; }
+    .dlg-form h2 { margin: 0; font-size: 1.1rem; color: var(--strong); font-weight: 600; }
+    .dlg-form p { margin: 0; }
+    .field { display: grid; gap: 4px; font-size: 0.82rem; color: var(--muted); }
+    .field input, .field select { width: 100%; color: var(--text); }
+    .form-error { color: var(--bad); font-size: 0.85rem; min-height: 0; }
+    .form-error:empty { display: none; }
+    .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+    /* toast */
+    #toast {
+      position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+      max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 10px; font-size: 0.9rem;
+      background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); transition: opacity 0.2s, transform 0.2s;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #toast.ok { border-color: var(--ok); }
+    #toast.bad { border-color: var(--bad); color: var(--bad); }
+
+    footer { padding: 0 0 28px; font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 16px; }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--accent); }
+
+    @media (max-width: 760px) {
+      h1 { font-size: 2.4rem; }
+      table.data thead { display: none; }
+      .table-wrap { border: 0; background: none; overflow: visible; }
+      table.data, table.data tbody, table.data tr, table.data td { display: block; width: 100%; }
+      table.data tr { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; padding: 8px 12px; background: var(--panel); }
+      table.data tbody tr:last-child td { border-bottom: 0; }
+      table.data td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; border: 0; text-align: right; }
+      table.data td::before { content: attr(data-label); color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; }
+      table.data td.actions { justify-content: flex-end; padding-top: 8px; }
+      table.data td.actions::before { content: none; }
+      .toolbar input[type="search"] { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <p class="prompt" id="prompt">~# ./deco --local</p>
+        <h1>deco</h1>
+      </div>
+      <div class="status">
+        <span id="pill" class="pill"><span class="dot"></span><span id="pillText">checking...</span></span>
+        <button id="resetBtn" class="sm" hidden title="Clear the lockout and try one login on the next request">Retry login</button>
+        <button id="releaseBtn" class="sm" hidden title="Drop the device session now so the desktop app can connect">Release</button>
+        <select id="themeSel" class="sm" aria-label="Theme" title="Theme">
+          <option value="terminal">Terminal</option>
+          <option value="midnight">Midnight</option>
+          <option value="amber">Amber CRT</option>
+          <option value="dracula">Dracula</option>
+          <option value="daylight">Daylight (light)</option>
+        </select>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="clients" aria-selected="true">Clients<span class="count" id="n-clients"></span></button>
+      <button role="tab" data-tab="pf" aria-selected="false">Port forwarding<span class="count" id="n-pf"></span></button>
+      <button role="tab" data-tab="res" aria-selected="false">Reservations<span class="count" id="n-res"></span></button>
+      <button role="tab" data-tab="mesh" aria-selected="false">Mesh<span class="count" id="n-mesh"></span></button>
+    </nav>
+
+    <main>
+      <section class="panel" id="tab-clients" role="tabpanel">
+        <div class="bar"></div>
+        <div class="toolbar">
+          <input id="clientSearch" type="search" placeholder="Filter clients" autocomplete="off" spellcheck="false">
+          <label class="check"><input id="onlineOnly" type="checkbox" checked> Online only</label>
+          <span class="spacer"></span>
+          <span id="clientCount" class="muted small"></span>
+          <button class="sm" data-refresh="clients">Refresh</button>
+        </div>
+        <div class="table-wrap" id="clients-wrap" hidden>
+          <table class="data" data-table="clients">
+            <thead><tr>
+              <th data-sort="name">Name</th><th data-sort="ip">IP</th><th data-sort="mac">MAC</th>
+              <th data-sort="client_type">Type</th><th data-sort="wire_type">Link</th><th data-sort="interface">Network</th>
+              <th data-sort="online">Status</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty" id="clients-empty">Loading clients...</p>
+      </section>
+
+      <section class="panel" id="tab-pf" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar">
+          <button class="primary sm" id="addPf">+ Add rule</button>
+          <span class="spacer"></span>
+          <button class="sm" data-refresh="pf">Refresh</button>
+        </div>
+        <div class="table-wrap" id="pf-wrap" hidden>
+          <table class="data" data-table="pf">
+            <thead><tr>
+              <th data-sort="service_name">Service</th><th data-sort="protocol">Protocol</th><th data-sort="external_port">External</th>
+              <th data-sort="internal_ip">Forwards to</th><th data-sort="target">Client</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty" id="pf-empty">Loading rules...</p>
+      </section>
+
+      <section class="panel" id="tab-res" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar">
+          <button class="primary sm" id="addRes">+ Add reservation</button>
+          <span class="spacer"></span>
+          <button class="sm" data-refresh="res">Refresh</button>
+        </div>
+        <p class="hint">A client picks up its reserved address the next time it renews its DHCP lease. Reconnecting it forces that.</p>
+        <div class="table-wrap" id="res-wrap" hidden>
+          <table class="data" data-table="res">
+            <thead><tr>
+              <th data-sort="name">Client</th><th data-sort="mac">MAC</th><th data-sort="ip">Reserved IP</th>
+              <th data-sort="current">Now</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty" id="res-empty">Loading reservations...</p>
+      </section>
+
+      <section class="panel" id="tab-mesh" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar">
+          <span class="spacer"></span>
+          <button class="sm" data-refresh="mesh">Refresh</button>
+        </div>
+        <div class="cards" id="mesh-cards"></div>
+        <p class="empty" id="mesh-empty">Loading mesh...</p>
+      </section>
+    </main>
+
+    <footer>
+      <span>Talks to the Deco directly over the LAN. No TP-Link cloud.</span>
+      <a href="docs">API docs</a>
+      <a href="openapi.json">OpenAPI</a>
+    </footer>
+  </div>
+
+  <dialog id="dlg"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <datalist id="clientIps"></datalist>
+
+  <script>
+  'use strict';
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  function el(tag, props = {}, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of kids.flat()) {
+      if (c == null || c === false) continue;
+      n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return n;
+  }
+  const td = (label, ...kids) => {
+    kids = kids.filter(k => k != null && k !== false);
+    return el('td', { 'data-label': label }, kids.length > 1 ? el('div', {}, ...kids) : kids);
+  };
+  const human = s => String(s || '').replace(/_/g, ' ');
+  const IP_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+  const lanHint = () => {
+    const ip = (S.status && S.status.ip) || ((S.data.clients || []).find(c => c.ip) || {}).ip;
+    return ip ? ip.split('.').slice(0, 3).join('.') + '.x' : '192.168.68.x';
+  };
+
+  function normMac(m) {
+    const h = String(m || '').toUpperCase().replace(/[^0-9A-F]/g, '');
+    return h.length === 12 ? h.match(/../g).join('-') : null;
+  }
+  function port(v, label, optional) {
+    if (optional && v === '') return null;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new Error(`${label} must be a number from 1 to 65535.`);
+    return n;
+  }
+  function ipNum(ip) {
+    const p = String(ip || '').split('.').map(Number);
+    return p.length === 4 && p.every(n => Number.isInteger(n)) ? ((p[0] * 256 + p[1]) * 256 + p[2]) * 256 + p[3] : Infinity;
+  }
+
+  async function api(path, opts = {}) {
+    const init = { method: opts.method || 'GET', headers: {} };
+    if (opts.body !== undefined) {
+      init.headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(opts.body);
+    }
+    let res;
+    try { res = await fetch(path, init); }
+    catch (e) { throw new Error('The Deco web server is unreachable.'); }
+    const txt = await res.text();
+    let data = null;
+    if (txt) { try { data = JSON.parse(txt); } catch (e) { data = txt; } }
+    if (!res.ok) {
+      let msg = data && data.detail ? data.detail : `HTTP ${res.status}`;
+      if (Array.isArray(msg)) msg = msg.map(d => d.msg).join('; ');
+      const err = new Error(String(msg));
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  /* ---------- state ---------- */
+  const SRC = { clients: 'clients', pf: 'port-forwards', res: 'reservations', mesh: 'devices' };
+  const S = {
+    data: { clients: null, pf: null, res: null, mesh: null },
+    err: {},
+    loaded: {},
+    inflight: {},
+    busy: 0,
+    status: null,
+    tab: 'clients',
+    sort: {
+      clients: { key: 'online', dir: -1 },
+      pf: { key: 'external_port', dir: 1 },
+      res: { key: 'ip', dir: 1 },
+    },
+  };
+  const DEPS = { clients: ['clients', 'res'], pf: ['pf', 'clients'], res: ['res', 'clients'], mesh: ['mesh'] };
+
+  const clientByMac = mac => (S.data.clients || []).find(c => normMac(c.mac) === normMac(mac));
+  const clientByIp = ip => (S.data.clients || []).find(c => c.ip === ip && c.online) ||
+                           (S.data.clients || []).find(c => c.ip === ip);
+
+  function cmp(a, b, key) {
+    const x = a[key], y = b[key];
+    if (key === 'ip' || key === 'internal_ip' || key === 'current') return ipNum(x) - ipNum(y);
+    if (typeof x === 'boolean' || typeof y === 'boolean') return (x ? 1 : 0) - (y ? 1 : 0);
+    if (key.endsWith('port')) return (Number(x) || 0) - (Number(y) || 0);
+    return String(x ?? '').localeCompare(String(y ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+  }
+  function sorted(rows, table) {
+    const { key, dir } = S.sort[table];
+    return [...rows].sort((a, b) => cmp(a, b, key) * dir || cmp(a, b, 'name'));
+  }
+
+  async function load(name, { quiet = false } = {}) {
+    if (S.inflight[name]) return S.inflight[name];
+    const p = (async () => {
+      S.busy++;
+      $(`#tab-${name}`).classList.add('loading');
+      paintStatus();
+      try {
+        S.data[name] = await api(SRC[name]);
+        S.loaded[name] = Date.now();
+        S.err[name] = null;
+      } catch (e) {
+        S.err[name] = e.message;
+        if (!quiet) toast(e.message, 'bad');
+      } finally {
+        S.busy--;
+        $(`#tab-${name}`).classList.remove('loading');
+        delete S.inflight[name];
+        renderAll();
+        refreshStatus();
+      }
+    })();
+    S.inflight[name] = p;
+    return p;
+  }
+  function ensure(tab, force) {
+    for (const name of DEPS[tab]) {
+      const stale = !S.loaded[name] || Date.now() - S.loaded[name] > 60000;
+      if (force ? name === tab || !S.loaded[name] : stale) load(name, { quiet: name !== tab });
+    }
+  }
+
+  /* ---------- rendering ---------- */
+  function setEmpty(name, rowsShown, emptyText) {
+    const empty = $(`#${name}-empty`);
+    const wrap = $(`#${name}-wrap`) || $(`#${name}-cards`);
+    const err = S.err[name];
+    if (S.data[name] == null) {
+      empty.hidden = false;
+      empty.className = err ? 'empty err' : 'empty';
+      empty.textContent = err || (S.busy ? 'Talking to the Deco. The first request after idle takes a few seconds.' : 'Loading...');
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = rowsShown === 0;
+    empty.hidden = rowsShown !== 0;
+    empty.className = 'empty';
+    empty.textContent = emptyText;
+  }
+  function paintSort(table) {
+    const { key, dir } = S.sort[table];
+    for (const th of $$(`table[data-table="${table}"] th[data-sort]`)) {
+      th.setAttribute('aria-sort', th.dataset.sort === key ? (dir > 0 ? 'ascending' : 'descending') : 'none');
+    }
+  }
+
+  function renderClients() {
+    const all = S.data.clients || [];
+    const q = $('#clientSearch').value.trim().toLowerCase();
+    const onlineOnly = $('#onlineOnly').checked;
+    const reserved = new Map((S.data.res || []).map(r => [normMac(r.mac), r.ip]));
+    let rows = all.filter(c => (!onlineOnly || c.online) &&
+      (!q || [c.name, c.ip, c.mac, c.brand, c.client_type].some(v => String(v || '').toLowerCase().includes(q))));
+    rows = sorted(rows, 'clients');
+    const tb = $('table[data-table="clients"] tbody');
+    tb.replaceChildren(...rows.map(c => {
+      const resIp = reserved.get(normMac(c.mac));
+      return el('tr', { class: c.online ? null : 'off' },
+        td('Name', el('span', { class: 'name', text: c.name || c.mac }),
+           c.brand ? el('span', { class: 'sub', text: c.brand }) : null),
+        td('IP', el('span', { class: 'mono', text: c.ip || '-' }),
+           resIp ? el('span', { class: 'tag accent', text: 'reserved', title: `Reserved: ${resIp}` }) : null),
+        td('MAC', el('span', { class: 'mono', text: c.mac })),
+        td('Type', human(c.custom_client_type && c.has_set_client_type ? c.custom_client_type : c.client_type)),
+        td('Link', human(c.wire_type)),
+        td('Network', human(c.interface)),
+        td('Status', el('span', { class: c.online ? 'state on' : 'state', text: c.online ? 'online' : 'offline' })),
+        el('td', { class: 'actions' },
+          el('button', { class: 'sm', text: 'Rename', onclick: () => renameClient(c) }),
+          resIp ? null : el('button', { class: 'sm', text: 'Reserve IP', onclick: () => addRes({ mac: c.mac, ip: c.ip }) }))
+      );
+    }));
+    const on = all.filter(c => c.online).length;
+    $('#clientCount').textContent = S.data.clients ? `${on} online, ${all.length} known` : '';
+    $('#n-clients').textContent = S.data.clients ? on : '';
+    paintSort('clients');
+    setEmpty('clients', rows.length, all.length ? 'No clients match the filter.' : 'The Deco reports no clients.');
+
+    $('#clientIps').replaceChildren(...all.filter(c => c.online && c.ip)
+      .sort((a, b) => ipNum(a.ip) - ipNum(b.ip))
+      .map(c => el('option', { value: c.ip, label: c.name || c.mac })));
+  }
+
+  function renderPf() {
+    const rules = (S.data.pf || []).map(r => {
+      const c = clientByIp(r.internal_ip);
+      return { ...r, target: c ? (c.name || c.mac) : '', targetOnline: !!(c && c.online) };
+    });
+    const tb = $('table[data-table="pf"] tbody');
+    tb.replaceChildren(...sorted(rules, 'pf').map(r => el('tr', {},
+      td('Service', el('span', { class: 'name', text: r.service_name || '(unnamed)' })),
+      td('Protocol', r.protocol === 'all' ? 'TCP + UDP' : String(r.protocol || '').toUpperCase()),
+      td('External', el('span', { class: 'mono', text: r.external_port })),
+      td('Forwards to', el('span', { class: 'mono', text: `${r.internal_ip}:${r.internal_port}` })),
+      td('Client', r.target ? el('span', { class: r.targetOnline ? 'state on' : 'state', text: r.target })
+                            : el('span', { class: 'muted', text: 'unknown host' })),
+      el('td', { class: 'actions' },
+        el('button', { class: 'sm link-danger', text: 'Delete', onclick: () => deletePf(r) }))
+    )));
+    $('#n-pf').textContent = S.data.pf ? rules.length : '';
+    paintSort('pf');
+    setEmpty('pf', rules.length, 'No port-forwarding rules.');
+  }
+
+  function renderRes() {
+    const rows = (S.data.res || []).map(r => {
+      const c = clientByMac(r.mac);
+      return { ...r, name: c ? (c.name || '') : '', current: c && c.online ? c.ip : '', online: !!(c && c.online) };
+    });
+    const tb = $('table[data-table="res"] tbody');
+    tb.replaceChildren(...sorted(rows, 'res').map(r => el('tr', { class: r.online ? null : 'off' },
+      td('Client', r.name ? el('span', { class: 'name', text: r.name }) : el('span', { class: 'muted', text: 'not seen' })),
+      td('MAC', el('span', { class: 'mono', text: r.mac })),
+      td('Reserved IP', el('span', { class: 'mono', text: r.ip })),
+      td('Now', !r.online ? el('span', { class: 'state', text: 'offline' })
+        : r.current === r.ip ? el('span', { class: 'state on', text: 'using it' })
+        : el('span', { class: 'state', title: 'Renews on reconnect', text: `on ${r.current || 'no IP'}` })),
+      el('td', { class: 'actions' },
+        el('button', { class: 'sm', text: 'Edit', onclick: () => editRes(r) }),
+        el('button', { class: 'sm link-danger', text: 'Remove', onclick: () => removeRes(r) }))
+    )));
+    $('#n-res').textContent = S.data.res ? rows.length : '';
+    paintSort('res');
+    setEmpty('res', rows.length, 'No address reservations.');
+  }
+
+  function renderMesh() {
+    const nodes = [...(S.data.mesh || [])].sort((a, b) =>
+      (a.role === 'master' ? -1 : 0) - (b.role === 'master' ? -1 : 0) ||
+      (a.group_status === 'connected' ? -1 : 0) - (b.group_status === 'connected' ? -1 : 0) ||
+      String(a.name).localeCompare(String(b.name)));
+    const backhaul = n => {
+      const ct = n.connection_type;
+      if (n.role === 'master') return 'gateway (wired WAN)';
+      if (!ct || !ct.length) return n.group_status === 'connected' ? 'wired' : '-';
+      return ct.map(b => b === 'band5' ? '5 GHz' : b === 'band2_4' ? '2.4 GHz' : human(b)).join(' + ');
+    };
+    $('#mesh-cards').replaceChildren(...nodes.map(n => {
+      const up = n.group_status === 'connected';
+      const sig = n.signal_level || {};
+      return el('div', { class: up ? 'card' : 'card off' },
+        el('h3', { text: n.name || n.device_model }),
+        el('span', { class: up ? 'state on' : 'state down', text: up ? 'online' : 'offline' }),
+        el('span', { class: n.role === 'master' ? 'tag accent' : 'tag', text: n.role === 'master' ? 'main' : 'satellite' }),
+        el('dl', {},
+          el('dt', { text: 'Model' }), el('dd', { text: `${n.device_model || '?'}${n.hardware_ver ? ' v' + n.hardware_ver : ''}` }),
+          el('dt', { text: 'IP' }), el('dd', { class: 'mono', text: n.ip || '-' }),
+          el('dt', { text: 'MAC' }), el('dd', { class: 'mono', text: n.mac || '-' }),
+          el('dt', { text: 'Backhaul' }), el('dd', { text: backhaul(n) }),
+          n.role !== 'master' && up && (sig.band5 || sig.band2_4) ? [
+            el('dt', { text: 'Signal' }), el('dd', { text: `5 GHz ${sig.band5 ?? '-'}, 2.4 GHz ${sig.band2_4 ?? '-'}` })] : null,
+          el('dt', { text: 'Firmware' }), el('dd', { text: n.software_ver ? n.software_ver.split(' Rel')[0] : '-' }))
+      );
+    }));
+    $('#n-mesh').textContent = S.data.mesh ? nodes.length : '';
+    setEmpty('mesh', nodes.length, 'No mesh nodes reported.');
+  }
+
+  function renderAll() { renderClients(); renderPf(); renderRes(); renderMesh(); }
+
+  /* ---------- dialogs ---------- */
+  const dlg = $('#dlg');
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+  function formDialog({ title, note, fields = [], submit = 'Save', danger = false, onSubmit }) {
+    const inputs = {};
+    const form = el('form', { class: 'dlg-form', novalidate: true });
+    form.append(el('h2', { text: title }));
+    if (note) form.append(el('p', { class: 'muted small', text: note }));
+    for (const f of fields) {
+      let input;
+      if (f.type === 'select') {
+        input = el('select', { name: f.key },
+          f.options.map(o => el('option', { value: o.value, text: o.label, selected: o.value === f.value })));
+      } else {
+        input = el('input', {
+          name: f.key, type: 'text', value: f.value ?? '', placeholder: f.placeholder, list: f.list,
+          inputmode: f.inputmode, autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off',
+        });
+      }
+      if (f.onchange) input.addEventListener('change', () => f.onchange(input.value, inputs));
+      inputs[f.key] = input;
+      form.append(el('label', { class: 'field' }, el('span', { text: f.label }), input,
+        f.hint ? el('small', { class: 'muted', text: f.hint }) : null));
+    }
+    const err = el('p', { class: 'form-error', role: 'alert' });
+    const ok = el('button', { type: 'submit', class: danger ? 'danger' : 'primary', text: submit });
+    form.append(err, el('div', { class: 'dlg-actions' },
+      el('button', { type: 'button', text: 'Cancel', onclick: () => dlg.close() }), ok));
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const values = Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.value.trim()]));
+      err.textContent = '';
+      ok.disabled = true;
+      ok.classList.add('busy');
+      try {
+        await onSubmit(values);
+        dlg.close();
+      } catch (e) {
+        err.textContent = e.message;
+      } finally {
+        ok.disabled = false;
+        ok.classList.remove('busy');
+      }
+    });
+    dlg.replaceChildren(form);
+    dlg.showModal();
+    const first = Object.values(inputs)[0];
+    if (first) first.focus(); else ok.focus();
+  }
+
+  /* ---------- actions ---------- */
+  function renameClient(c) {
+    formDialog({
+      title: 'Rename client',
+      note: `${c.mac}${c.ip ? ' at ' + c.ip : ''}`,
+      fields: [{ key: 'name', label: 'Name', value: c.name || '' }],
+      async onSubmit(v) {
+        if (!v.name) throw new Error('Enter a name.');
+        await api(`clients/${encodeURIComponent(c.mac)}/name`, { method: 'POST', body: { name: v.name } });
+        toast(`Renamed to ${v.name}.`, 'ok');
+        load('clients');
+      },
+    });
+  }
+
+  function addPf() {
+    formDialog({
+      title: 'Add port-forwarding rule',
+      submit: 'Add rule',
+      fields: [
+        { key: 'name', label: 'Service name', placeholder: 'e.g. plex' },
+        { key: 'protocol', label: 'Protocol', type: 'select', value: 'tcp',
+          options: [{ value: 'tcp', label: 'TCP' }, { value: 'udp', label: 'UDP' }, { value: 'all', label: 'TCP + UDP' }] },
+        { key: 'external_port', label: 'External port', inputmode: 'numeric', placeholder: '1-65535' },
+        { key: 'internal_ip', label: 'Internal IP', list: 'clientIps', inputmode: 'decimal',
+          placeholder: lanHint(), hint: 'Pick an online client or type an address.' },
+        { key: 'internal_port', label: 'Internal port', inputmode: 'numeric', placeholder: 'same as external' },
+      ],
+      async onSubmit(v) {
+        const body = {
+          name: v.name, protocol: v.protocol,
+          external_port: port(v.external_port, 'External port'),
+          internal_ip: v.internal_ip,
+          internal_port: port(v.internal_port, 'Internal port', true),
+        };
+        if (!IP_RE.test(body.internal_ip)) throw new Error('Internal IP is not a valid IPv4 address.');
+        const clash = (S.data.pf || []).find(r => Number(r.external_port) === body.external_port &&
+          (r.protocol === 'all' || body.protocol === 'all' || r.protocol === body.protocol));
+        if (clash) throw new Error(`External port ${body.external_port} is already forwarded by "${clash.service_name || clash.port_forwarding_id}".`);
+        await api('port-forwards', { method: 'POST', body });
+        toast(`Added ${v.name || 'rule'}: ${body.external_port} to ${body.internal_ip}.`, 'ok');
+        load('pf');
+      },
+    });
+  }
+
+  function deletePf(r) {
+    formDialog({
+      title: 'Delete port-forwarding rule?',
+      note: `${r.service_name || '(unnamed)'}: external ${r.external_port} (${r.protocol}) to ${r.internal_ip}:${r.internal_port}. This stops forwarding immediately.`,
+      submit: 'Delete', danger: true,
+      async onSubmit() {
+        await api(`port-forwards/${encodeURIComponent(r.port_forwarding_id)}`, { method: 'DELETE' });
+        toast(`Deleted ${r.service_name || 'rule'}.`, 'ok');
+        load('pf');
+      },
+    });
+  }
+
+  function clientOptions() {
+    const known = (S.data.clients || []).filter(c => c.mac)
+      .sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) ||
+        String(a.name || a.mac).localeCompare(String(b.name || b.mac), undefined, { sensitivity: 'base' }));
+    return [{ value: '', label: 'Pick a client, or type the MAC below' }, ...known.map(c => ({
+      value: c.mac, label: `${c.name || c.mac}${c.ip ? ', ' + c.ip : ''}${c.online ? '' : ' (offline)'}`,
+    }))];
+  }
+
+  function checkRes(mac, ip, original) {
+    if (!mac) throw new Error('MAC must look like AA-BB-CC-DD-EE-FF.');
+    if (!IP_RE.test(ip)) throw new Error('IP is not a valid IPv4 address.');
+    for (const r of S.data.res || []) {
+      if (original && normMac(r.mac) === normMac(original.mac)) continue;
+      if (normMac(r.mac) === mac) throw new Error(`${mac} is already reserved at ${r.ip}. Edit that reservation instead.`);
+      if (r.ip === ip) throw new Error(`${ip} is already reserved for ${r.mac}.`);
+    }
+  }
+
+  function addRes(prefill = {}) {
+    if (S.tab !== 'res') showTab('res');
+    formDialog({
+      title: 'Add address reservation',
+      note: 'The client keeps this IP from its next DHCP renewal on.',
+      submit: 'Reserve',
+      fields: [
+        { key: 'client', label: 'Client', type: 'select', value: prefill.mac || '', options: clientOptions(),
+          onchange(mac, inputs) {
+            const c = clientByMac(mac);
+            if (c) { inputs.mac.value = c.mac; if (c.ip) inputs.ip.value = c.ip; }
+          } },
+        { key: 'mac', label: 'MAC', value: prefill.mac || '', placeholder: 'AA-BB-CC-DD-EE-FF' },
+        { key: 'ip', label: 'IP', value: prefill.ip || '', inputmode: 'decimal', placeholder: lanHint(),
+          hint: 'Must be inside the DHCP pool.' },
+      ],
+      async onSubmit(v) {
+        const mac = normMac(v.mac);
+        checkRes(mac, v.ip);
+        await api('reservations', { method: 'POST', body: { mac, ip: v.ip } });
+        toast(`Reserved ${v.ip} for ${mac}.`, 'ok');
+        load('res');
+      },
+    });
+  }
+
+  function editRes(r) {
+    formDialog({
+      title: 'Edit reservation',
+      note: r.name ? `${r.name}` : null,
+      fields: [
+        { key: 'mac', label: 'MAC', value: r.mac },
+        { key: 'ip', label: 'IP', value: r.ip, inputmode: 'decimal', hint: 'Must be inside the DHCP pool.' },
+      ],
+      async onSubmit(v) {
+        const mac = normMac(v.mac);
+        checkRes(mac, v.ip, r);
+        if (mac === normMac(r.mac) && v.ip === r.ip) return;
+        await api('reservations', { method: 'PUT', body: { original_mac: r.mac, original_ip: r.ip, mac, ip: v.ip } });
+        toast(`Updated reservation: ${v.ip} for ${mac}.`, 'ok');
+        load('res');
+      },
+    });
+  }
+
+  function removeRes(r) {
+    formDialog({
+      title: 'Remove reservation?',
+      note: `${r.name ? r.name + ': ' : ''}${r.mac} keeps ${r.ip} until its lease expires, then gets any free address.`,
+      submit: 'Remove', danger: true,
+      async onSubmit() {
+        await api(`reservations/${encodeURIComponent(r.mac)}`, { method: 'DELETE' });
+        toast(`Removed the reservation for ${r.mac}.`, 'ok');
+        load('res');
+      },
+    });
+  }
+
+  /* ---------- status pill ---------- */
+  async function refreshStatus() {
+    try { S.status = await api('status'); }
+    catch (e) { S.status = { error: e.message }; }
+    paintStatus();
+  }
+  function paintStatus() {
+    const s = S.status || {};
+    let cls = '', text = 'Standby', title = '';
+    if (s.error) { cls = 'bad'; text = 'Server unreachable'; title = s.error; }
+    else if (s.locked_out) { cls = 'bad'; text = 'Login locked out'; title = 'The Deco rejected the login. Wait a few minutes, then use Retry login.'; }
+    else if (S.busy && !s.connected) { cls = 'warn'; text = 'Connecting...'; }
+    else if (s.connected) {
+      cls = 'ok';
+      text = `${s.model || 'Deco'} at ${s.ip}`;
+      title = `Holding the device session. It is released after ${Math.round((s.idle_release_seconds || 0) / 60)} min without requests.`;
+    } else if (S.status) {
+      title = 'No device session held. The next request connects; the desktop app can connect meanwhile.';
+    }
+    $('#pill').className = `pill ${cls}`;
+    $('#pillText').textContent = S.status || S.busy ? text : 'checking...';
+    $('#pill').title = title;
+    $('#releaseBtn').hidden = !s.connected;
+    $('#resetBtn').hidden = !s.locked_out;
+  }
+
+  /* ---------- toast ---------- */
+  let toastTimer;
+  function toast(msg, kind = '') {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.className = `show ${kind}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = kind; }, kind === 'bad' ? 7000 : 4000);
+  }
+
+  /* ---------- tabs ---------- */
+  function showTab(tab, force) {
+    S.tab = tab;
+    for (const b of $$('nav.tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    for (const p of $$('main .panel')) p.hidden = p.id !== `tab-${tab}`;
+    if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
+    ensure(tab, force);
+  }
+
+  /* ---------- theme ---------- */
+  function paintTheme() {
+    const sel = $('#themeSel');
+    if (![...sel.options].some(o => o.value === document.documentElement.dataset.theme)) {
+      document.documentElement.dataset.theme = 'terminal';
+    }
+    sel.value = document.documentElement.dataset.theme;
+    document.querySelector('meta[name="theme-color"]').content =
+      getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  }
+
+  /* ---------- wiring ---------- */
+  for (const b of $$('nav.tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
+  for (const b of $$('[data-refresh]')) b.addEventListener('click', () => showTab(b.dataset.refresh, true));
+  for (const th of $$('th[data-sort]')) {
+    th.addEventListener('click', () => {
+      const table = th.closest('table').dataset.table;
+      const cur = S.sort[table];
+      S.sort[table] = { key: th.dataset.sort, dir: cur.key === th.dataset.sort ? -cur.dir : 1 };
+      renderAll();
+    });
+  }
+  $('#clientSearch').addEventListener('input', renderClients);
+  $('#onlineOnly').addEventListener('change', renderClients);
+  $('#addPf').addEventListener('click', () => { load('clients', { quiet: true }); addPf(); });
+  $('#addRes').addEventListener('click', () => addRes());
+  $('#releaseBtn').addEventListener('click', async () => {
+    try {
+      S.status = await api('session/release', { method: 'POST' });
+      toast('Released the device session. The desktop app can connect now.', 'ok');
+    } catch (e) { toast(e.message, 'bad'); }
+    paintStatus();
+  });
+  $('#resetBtn').addEventListener('click', async () => {
+    try {
+      S.status = await api('session/reset', { method: 'POST' });
+      toast('Lockout cleared. The next request tries one login.', 'ok');
+      showTab(S.tab, true);
+    } catch (e) { toast(e.message, 'bad'); }
+    paintStatus();
+  });
+  $('#themeSel').addEventListener('change', e => {
+    document.documentElement.dataset.theme = e.target.value;
+    try { localStorage.setItem('deco-theme', e.target.value); } catch (err) {}
+    paintTheme();
+  });
+
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && S.tab === 'clients' && !dlg.open) load('clients', { quiet: true });
+  }, 30000);
+  setInterval(() => { if (document.visibilityState === 'visible') refreshStatus(); }, 15000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { refreshStatus(); ensure(S.tab); }
+  });
+
+  const host = location.hostname || 'localhost';
+  $('#prompt').textContent = `root@${/^[\d.:\[\]]+$/.test(host) ? host : host.split('.')[0]}:~# ./deco --local`;
+  paintTheme();
+  refreshStatus();
+  const start = location.hash.slice(1);
+  showTab(SRC[start] ? start : 'clients');
+  </script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# deco-local: web UI + REST API. Run with:
+#   cp deco.env.example deco.env && chmod 600 deco.env   # then fill in your TP-Link login
+#   docker compose up -d --build
+#   open http://127.0.0.1:8777/
+#
+# Host networking is REQUIRED: the Deco is found with a UDP broadcast (TDP on udp/20002),
+# which a bridged network will not deliver to the LAN. With host networking `ports:` is
+# ignored; the server binds DECO_API_HOST:DECO_API_PORT directly on the host.
+#
+# The Deco allows a SINGLE local session. This server releases it after
+# DECO_IDLE_SECONDS without requests so the desktop app can connect in between.
+
+services:
+  deco:
+    build: .
+    image: deco-local:latest
+    container_name: deco
+    network_mode: host
+    restart: unless-stopped
+    env_file: deco.env
+    environment:
+      # 127.0.0.1 = this machine only (the API has no auth). To reach it from other
+      # devices, put a reverse proxy with an IP allowlist (or auth) in front, or bind
+      # 0.0.0.0 on a network you trust, and list the hostnames you will use in
+      # DECO_ALLOWED_HOSTS (keep "localhost" for the healthcheck).
+      DECO_API_HOST: "127.0.0.1"
+      DECO_API_PORT: "8777"
+      DECO_ALLOWED_HOSTS: "*"
+      DECO_IDLE_SECONDS: "300"
+      DECO_LOG_LEVEL: "INFO"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

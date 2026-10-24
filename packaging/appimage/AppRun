@@ -1,0 +1,35 @@
+#!/bin/sh
+# Deco Desktop AppImage. Python, PyGObject, GTK 4, and paramiko are bundled; the host
+# provides glibc, the display and graphics stack, and fonts, as on any desktop.
+#   ./DecoDesktop-x86_64.AppImage               the app
+#   ./DecoDesktop-x86_64.AppImage --install     copy to ~/Applications and add to the app menu
+#   ./DecoDesktop-x86_64.AppImage --uninstall   remove that again
+#   ./DecoDesktop-x86_64.AppImage --version
+HERE="$(dirname "$(readlink -f "$0")")"
+export APPDIR="$HERE"
+
+for hook in "$HERE"/apprun-hooks/*.sh; do
+    [ -f "$hook" ] && . "$hook"
+done
+# The GTK hook forces X11 and a fixed theme. GTK 4 runs natively on Wayland and the app
+# picks dark or light itself, so undo both.
+unset GDK_BACKEND GTK_THEME
+
+export PYTHONHOME="$HERE/usr"
+export PYTHONPATH="$HERE/usr/lib/deco-desktop:$HERE/usr/lib/python3/dist-packages"
+export PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
+export GI_TYPELIB_PATH="$HERE/usr/lib/girepository-1.0"
+export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# The bundled OpenSSL's provider modules; SSH needs no legacy ciphers, so never fail on them.
+export OPENSSL_MODULES="$HERE/usr/lib/ossl-modules" CRYPTOGRAPHY_OPENSSL_NO_LEGACY=1
+
+PY="$HERE/usr/bin/python3"
+case "${1:-}" in
+    --install|--uninstall) exec sh "$HERE/usr/share/deco-desktop/install.sh" "$1" ;;
+    --version) exec "$PY" -c 'import deco_desktop; print("Deco Desktop", deco_desktop.__version__)' ;;
+    --help|-h)
+        sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0 ;;
+esac
+exec "$PY" -m deco_desktop "$@"

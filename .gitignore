@@ -1,0 +1,13 @@
+# Credentials: never commit
+deco.env
+.tplink_cloud
+
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+
+# Local snapshots of your network (deco_snapshot.py)
+deco-snapshot*.json

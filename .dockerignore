@@ -1,0 +1,9 @@
+# Keep the build context tiny: ignore everything, then allow only what the image needs.
+*
+!deco_rest.py
+!deco_api.py
+!deco_demo.py
+!deco_log.py
+!deco-opcodes.json
+!requirements-rest.txt
+!web/

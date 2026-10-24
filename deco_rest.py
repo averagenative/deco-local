@@ -103,6 +103,8 @@ class Session:
                 raise HTTPException(503, f"Session dropped: {e}")
             except deco_api.DecoError as e:
                 raise HTTPException(502, f"Device rejected the request: {e}")
+            except ValueError as e:
+                raise HTTPException(422, str(e))
             except HTTPException:
                 raise
             except Exception as e:
@@ -164,7 +166,7 @@ session = Session(
 
 app = FastAPI(
     title="Deco Local API",
-    version="1.1.0",
+    version="1.2.0",
     description="Strictly-local REST control for a TP-Link Deco mesh (no cloud/NOC).",
 )
 
@@ -447,6 +449,75 @@ def put_wifi(body: WifiChange):
         raise HTTPException(422, "Wi-Fi passwords need at least 8 characters")
     return session.call(lambda d: deco_features.set_wifi_network(
         d, body.network, ssid=body.ssid, password=body.password, enable=body.enable, secured=body.secured))
+
+
+# ---- WAN / LAN: UNTESTED on hardware (shapes mirror the Deco app; see docs/WRITES.md) ----
+class WanChange(BaseModel):
+    dial_type: str = Field(..., description="dynamic_ip | static_ip | pppoe")
+    enable_auto_dns: bool = True
+    dns1: str | None = None
+    dns2: str | None = None
+    mtu_size: int | None = None
+    ip: str | None = Field(None, description="static_ip only")
+    mask: str | None = Field(None, description="static_ip only")
+    gateway: str | None = Field(None, description="static_ip only")
+    username: str | None = Field(None, description="pppoe only")
+    password: str | None = Field(None, description="pppoe only")
+
+
+class Toggle(BaseModel):
+    enable: bool
+
+
+class LanIp(BaseModel):
+    ip: str
+    mask: str = "255.255.255.0"
+
+
+class DhcpChange(BaseModel):
+    start_ip: str | None = None
+    end_ip: str | None = None
+    dns1: str | None = None
+    dns2: str | None = None
+
+
+@app.get("/wan", tags=["wan-lan (untested)"])
+def get_wan():
+    """The internet connection: type, DNS, MTU, ping, and static-IP fields."""
+    return session.call(deco_features.wan_settings)
+
+
+@app.put("/wan", tags=["wan-lan (untested)"])
+def put_wan(body: WanChange):
+    """UNTESTED on hardware. Re-applies the internet connection (it drops for a few seconds);
+    wrong values keep it down until corrected. deco-local itself keeps working over the LAN."""
+    return session.call(lambda d: deco_features.set_wan(d, **body.model_dump()))
+
+
+@app.put("/wan/ping", tags=["wan-lan (untested)"])
+def put_wan_ping(body: Toggle):
+    """UNTESTED on hardware. Whether the Deco answers pings from the internet."""
+    return session.call(lambda d: deco_features.set_wan_ping(d, body.enable))
+
+
+@app.get("/lan", tags=["wan-lan (untested)"])
+def get_lan():
+    """The Deco's LAN address and the DHCP server settings."""
+    return session.call(deco_features.lan_settings)
+
+
+@app.put("/lan/ip", tags=["wan-lan (untested)"])
+def put_lan_ip(body: LanIp):
+    """UNTESTED on hardware. Changes the Deco's own address: every device has to get a new
+    address, and reservations and port forwards in the old range stop working."""
+    return session.call(lambda d: deco_features.set_lan_ip(d, body.ip, body.mask))
+
+
+@app.put("/lan/dhcp", tags=["wan-lan (untested)"])
+def put_dhcp(body: DhcpChange):
+    """UNTESTED on hardware. The DHCP pool and the DNS servers it hands out; devices pick
+    up the change when their leases renew."""
+    return session.call(lambda d: deco_features.set_dhcp(d, **body.model_dump()))
 
 
 @app.get("/firmware", tags=["system"])

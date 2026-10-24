@@ -290,6 +290,7 @@
     .inline-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.88rem; }
     .inline-list li:first-child { border-top: 0; }
     .pw-row { display: flex; gap: 6px; width: 60%; justify-content: flex-end; }
+    .tag.untested { border-color: var(--warn); color: var(--warn); }
     .pw-row input { width: 100% !important; max-width: none !important; }
     .card .row .pw-row input { width: auto; }
 
@@ -559,7 +560,7 @@
   const SRC = {
     overview: 'overview', clients: 'clients', speeds: 'clients/speeds', blocked: 'clients/blocked',
     pf: 'port-forwards', res: 'reservations', mesh: 'devices', wifi: 'wifi', settings: 'settings',
-    routes: 'routes', websites: 'security/allowed-websites', firmware: 'firmware',
+    routes: 'routes', websites: 'security/allowed-websites', firmware: 'firmware', wan: 'wan', lan: 'lan',
   };
   const S = {
     data: Object.fromEntries(Object.keys(SRC).map(k => [k, null])),
@@ -577,7 +578,7 @@
   };
   const DEPS = {
     overview: ['overview'], clients: ['clients', 'res', 'speeds', 'blocked'], pf: ['pf', 'clients'],
-    res: ['res', 'clients'], wifi: ['wifi'], mesh: ['mesh', 'settings'], network: ['settings', 'routes'],
+    res: ['res', 'clients'], wifi: ['wifi'], mesh: ['mesh', 'settings'], network: ['settings', 'routes', 'wan', 'lan'],
     security: ['settings', 'websites'], system: ['settings', 'firmware'],
   };
 
@@ -987,6 +988,10 @@
     const ddns = st.ddns || {};
     const routes = (S.data.routes && S.data.routes.route_static_list) || [];
     body.replaceChildren(
+      el('p', { class: 'section-title', text: 'Internet and LAN' }),
+      el('p', { class: 'warn-note', text: 'Untested on hardware: these three cards send the same requests as the Deco app, worked out from its code, but nobody has run them against a live Deco yet. A wrong internet setting can leave you offline until you fix it here; deco-local keeps working over your LAN.' }),
+      el('div', { class: 'grid2' }, wanCard(), lanIpCard(), dhcpCard(dhcp)),
+      el('p', { class: 'section-title', text: 'Features' }),
       el('div', { class: 'grid2' },
         settingCard({ key: 'upnp', title: 'UPnP', desc: 'Lets apps and game consoles open ports on their own. Turn it off to allow only the rules on the Port forwarding tab.',
           fields: [{ path: 'enable', type: 'toggle', label: 'On' }] }),
@@ -999,9 +1004,6 @@
                    { path: 'upstream_bandwidth', type: 'mbps', label: 'Upload (Mbps)' }],
           validate: v => v.enable && (v.downstream_bandwidth < 5 * 1024 || v.upstream_bandwidth < 1024)
             ? 'Those speeds look too low (under 5 Mbps down or 1 Mbps up). QoS would throttle your connection to them.' : null }),
-        el('div', { class: 'card' }, el('h3', { text: 'DHCP server' }),
-          kv([['Range', dhcp.start_ip ? `${dhcp.start_ip} to ${dhcp.end_ip}` : null, true], ['Gateway', dhcp.gateway, true],
-              ['DNS', [dhcp.dns1, dhcp.dns2].filter(Boolean).join(', '), true], ['Addresses in use', dhcp.ip_amount_in_use]])),
         el('div', { class: 'card' }, el('h3', { text: 'Dynamic DNS' }),
           kv([['Status', ddns.ddns_enable ? 'on' : 'off'], ['Connection', ddns.ddns_info && human(ddns.ddns_info.connection_status)]]),
           el('p', { class: 'desc', text: 'Read only here: setting up DDNS needs a TP-Link DDNS account.' }))),
@@ -1021,6 +1023,134 @@
                 el('button', { class: 'sm', text: 'Edit', onclick: () => routeDialog(r) }),
                 el('button', { class: 'sm link-danger', text: 'Delete', onclick: () => deleteRoute(r) })))))))
         : el('p', { class: 'muted small', text: 'No static routes.' }));
+  }
+
+  /* ---------- WAN / LAN cards (untested on hardware) ---------- */
+  function formRow(label, input) { return el('div', { class: 'row' }, el('span', { text: label }), input); }
+  function untestedTitle(text) { return el('h3', {}, text, el('span', { class: 'tag untested', text: 'untested' })); }
+
+  function wanCard() {
+    const w = S.data.wan;
+    if (!w) return el('div', { class: 'card' }, untestedTitle('Internet connection'), el('p', { class: 'desc', text: S.err.wan || 'Loading...' }));
+    const input = (value, attrs = {}) => el('input', { type: 'text', value: value ?? '', autocomplete: 'off', spellcheck: 'false', ...attrs });
+    const type = el('select', { 'aria-label': 'Connection type' },
+      [['dynamic_ip', 'Dynamic IP'], ['static_ip', 'Static IP'], ['pppoe', 'PPPoE']].map(([v, l]) => el('option', { value: v, text: l, selected: w.dial_type === v })));
+    const dnsMode = el('select', { 'aria-label': 'DNS' }, [['auto', 'Automatic'], ['manual', 'Manual']].map(([v, l]) =>
+      el('option', { value: v, text: l, selected: (v === 'auto') === !!w.enable_auto_dns })));
+    const f = {
+      ip: input(w.dial_type === 'static_ip' ? w.ip : '', { inputmode: 'decimal', 'aria-label': 'IP address' }),
+      mask: input(w.dial_type === 'static_ip' ? w.mask : '255.255.255.0', { inputmode: 'decimal', 'aria-label': 'Subnet mask' }),
+      gateway: input(w.dial_type === 'static_ip' ? w.gateway : '', { inputmode: 'decimal', 'aria-label': 'Gateway' }),
+      username: input(w.username || '', { 'aria-label': 'PPPoE username' }),
+      password: el('input', { type: 'password', autocomplete: 'new-password', 'aria-label': 'PPPoE password' }),
+      dns1: input(w.enable_auto_dns ? '' : w.dns1, { inputmode: 'decimal', 'aria-label': 'Primary DNS' }),
+      dns2: input(w.enable_auto_dns ? '' : w.dns2, { inputmode: 'decimal', 'aria-label': 'Secondary DNS' }),
+      mtu: input(w.mtu_size, { inputmode: 'numeric', 'aria-label': 'MTU' }),
+    };
+    const rows = {
+      dns: formRow('DNS', dnsMode), ip: formRow('IP address', f.ip), mask: formRow('Subnet mask', f.mask), gateway: formRow('Gateway', f.gateway),
+      username: formRow('Username', f.username), password: formRow('Password', f.password),
+      dns1: formRow('Primary DNS', f.dns1), dns2: formRow('Secondary DNS', f.dns2), mtu: formRow('MTU', f.mtu),
+    };
+    const sync = () => {
+      const t = type.value, manualDns = t === 'static_ip' || dnsMode.value === 'manual';
+      rows.dns.hidden = t === 'static_ip';
+      for (const k of ['ip', 'mask', 'gateway']) rows[k].hidden = t !== 'static_ip';
+      for (const k of ['username', 'password']) rows[k].hidden = t !== 'pppoe';
+      rows.dns1.hidden = rows.dns2.hidden = !manualDns;
+    };
+    type.addEventListener('change', sync);
+    dnsMode.addEventListener('change', sync);
+    sync();
+    const ping = el('input', { type: 'checkbox', 'aria-label': 'Answer pings from the internet' });
+    ping.checked = !!w.enable_ping;
+    ping.addEventListener('change', () => {
+      formDialog({
+        title: ping.checked ? 'Answer pings from the internet?' : 'Stop answering pings from the internet?',
+        note: 'This re-applies the internet connection, so it may drop for a few seconds. Untested on hardware.',
+        submit: 'Apply', danger: true,
+        async onSubmit() {
+          await api('wan/ping', { method: 'PUT', body: { enable: ping.checked } });
+          toast('Ping setting applied.', 'ok');
+          load('wan', { quiet: true });
+        },
+      });
+      dlg.addEventListener('close', () => { ping.checked = !!(S.data.wan && S.data.wan.enable_ping); }, { once: true });
+    });
+    const save = el('button', { class: 'primary sm', text: 'Save...' });
+    save.addEventListener('click', () => {
+      const body = { dial_type: type.value, enable_auto_dns: dnsMode.value === 'auto', mtu_size: f.mtu.value.trim() ? Number(f.mtu.value) : null };
+      if (type.value === 'static_ip' || dnsMode.value === 'manual') { body.dns1 = f.dns1.value.trim(); body.dns2 = f.dns2.value.trim(); }
+      if (type.value === 'static_ip') Object.assign(body, { ip: f.ip.value.trim(), mask: f.mask.value.trim(), gateway: f.gateway.value.trim() });
+      if (type.value === 'pppoe') Object.assign(body, { username: f.username.value.trim(), password: f.password.value });
+      const switching = type.value !== w.dial_type;
+      formDialog({
+        title: switching ? 'Change how the Deco connects to the internet?' : 'Apply internet settings?',
+        note: (switching
+          ? 'Changing the connection type disconnects the internet. If the new type is wrong for your modem or ISP, you stay offline until you change it back here.'
+          : 'The internet connection drops for a few seconds while the Deco re-applies it.')
+          + ' This feature is untested on hardware.',
+        submit: 'Apply', danger: true,
+        async onSubmit() {
+          await api('wan', { method: 'PUT', body });
+          toast('Internet settings applied. The connection is coming back up.', 'ok');
+          setTimeout(() => load('wan', { quiet: true }), 15000);
+        },
+      });
+    });
+    return el('div', { class: 'card' }, untestedTitle('Internet connection'),
+      el('p', { class: 'desc', text: `How the Deco connects to your modem. Now: ${human(w.dial_type)}${w.ip ? `, ${w.ip}` : ''}.` }),
+      formRow('Connection type', type), ...Object.values(rows),
+      formRow('Answer pings from the internet', el('label', { class: 'switch' }, ping, el('span'))),
+      el('div', { class: 'actions-row' }, save));
+  }
+
+  function lanIpCard() {
+    const l = S.data.lan;
+    if (!l) return el('div', { class: 'card' }, untestedTitle('Deco address (LAN)'), el('p', { class: 'desc', text: S.err.lan || 'Loading...' }));
+    const cur = l.lan_ip || {};
+    const ip = el('input', { type: 'text', value: cur.ip || '', inputmode: 'decimal', 'aria-label': 'Deco address' });
+    const mask = el('input', { type: 'text', value: cur.mask || '', inputmode: 'decimal', 'aria-label': 'Subnet mask' });
+    const save = el('button', { class: 'primary sm', text: 'Save...' });
+    save.addEventListener('click', () => {
+      if (ip.value.trim() === cur.ip && mask.value.trim() === cur.mask) { toast('Nothing changed.'); return; }
+      formDialog({
+        title: 'Change the Deco\'s address?',
+        note: `Every device on your network has to get a new address: reconnect each one or wait for its lease to renew. Address reservations, port forwards, and anything else that uses the old ${cur.ip ? cur.ip.split('.').slice(0, 2).join('.') + '.x' : ''} addresses stop working until you update them. Then check that the DHCP pool sits inside the new subnet. This page stops responding; open deco-local again once your device has a new address. This feature is untested on hardware.`,
+        submit: 'Change address', danger: true,
+        async onSubmit() {
+          await api('lan/ip', { method: 'PUT', body: { ip: ip.value.trim(), mask: mask.value.trim() } });
+          toast(`The Deco is moving to ${ip.value.trim()}.`, 'ok');
+        },
+      });
+    });
+    return el('div', { class: 'card' }, untestedTitle('Deco address (LAN)'),
+      el('p', { class: 'desc', text: 'The main Deco\'s own address, which is the gateway for every device on your network.' }),
+      formRow('Deco address', ip), formRow('Subnet mask', mask), el('div', { class: 'actions-row' }, save));
+  }
+
+  function dhcpCard(dhcp) {
+    const d = (S.data.lan && S.data.lan.dhcp) || dhcp || {};
+    const mk = (v, label) => el('input', { type: 'text', value: v || '', inputmode: 'decimal', 'aria-label': label });
+    const f = { start_ip: mk(d.start_ip, 'Pool start'), end_ip: mk(d.end_ip, 'Pool end'), dns1: mk(d.dns1, 'Primary DNS'), dns2: mk(d.dns2, 'Secondary DNS') };
+    const save = el('button', { class: 'primary sm', text: 'Save...' });
+    save.addEventListener('click', () => {
+      const body = Object.fromEntries(Object.entries(f).map(([k, i]) => [k, i.value.trim()]));
+      formDialog({
+        title: 'Apply DHCP settings?',
+        note: 'Devices keep their current address until their lease renews. Address reservations must stay inside the new pool. This feature is untested on hardware.',
+        submit: 'Apply', danger: true,
+        async onSubmit() {
+          await api('lan/dhcp', { method: 'PUT', body });
+          toast('DHCP settings applied.', 'ok');
+          load('lan', { quiet: true });
+        },
+      });
+    });
+    return el('div', { class: 'card' }, untestedTitle('DHCP server'),
+      el('p', { class: 'desc', text: `Hands out addresses to your devices. ${d.ip_amount_in_use ?? '?'} addresses in use; gateway ${d.gateway || '?'}.` }),
+      formRow('Pool start', f.start_ip), formRow('Pool end', f.end_ip), formRow('Primary DNS', f.dns1), formRow('Secondary DNS', f.dns2),
+      el('div', { class: 'actions-row' }, save));
   }
 
   /* ---------- security ---------- */

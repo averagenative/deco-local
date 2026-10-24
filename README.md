@@ -10,7 +10,8 @@ deco-local talks to the main Deco directly on your LAN and covers what you use t
 - **Address reservations:** reserve a client's address from the client list, and edit or remove reservations.
 - **Wi-Fi:** the main, guest, and IoT networks: names, passwords, and on/off.
 - **Mesh:** each Deco with its backhaul and firmware; rename or reboot a Deco; LED and night-mode settings.
-- **Network:** UPnP, SIP ALG, client isolation, QoS bandwidth, static routes, and the DHCP and DDNS status.
+- **Internet and LAN (untested on hardware):** connection type (dynamic IP, static IP, or PPPoE), DNS servers, MTU, WAN ping, the Deco's LAN address, and the DHCP pool.
+- **Network:** UPnP, SIP ALG, client isolation, QoS bandwidth, static routes, and the DDNS status.
 - **Security:** HomeShield protections and the allowed-websites list.
 - **System:** automatic firmware updates, scheduled reboots, the Wi-Fi schedule, eco mode, and reports.
 
@@ -178,6 +179,11 @@ The server documents its API with Swagger at `/docs` and publishes the schema at
 | `GET`, `POST`, `PUT`, `DELETE` | `/routes`, `/routes/{id}` | Static routes. |
 | `GET`, `POST`, `DELETE` | `/security/allowed-websites` | Websites HomeShield never blocks. |
 | `GET` | `/firmware` | Firmware versions and update status. |
+| `GET`, `PUT` | `/wan` | The internet connection: type, DNS, MTU, and static-IP or PPPoE fields. **Untested on hardware.** |
+| `PUT` | `/wan/ping` | Answer pings from the internet. Body: `{"enable"}`. **Untested on hardware.** |
+| `GET` | `/lan` | The Deco's LAN address and the DHCP settings. |
+| `PUT` | `/lan/ip` | Change the Deco's LAN address. Body: `{"ip", "mask"}`. **Untested on hardware.** |
+| `PUT` | `/lan/dhcp` | Change the DHCP pool and DNS. Body: `{"start_ip", "end_ip", "dns1", "dns2"}`. **Untested on hardware.** |
 | `POST` | `/session/release` | Release the Deco session now. |
 | `POST` | `/session/reset` | Clear a login lockout so the next request tries once more. |
 
@@ -202,7 +208,8 @@ The main Deco answers a UDP discovery broadcast, then accepts an SSH login with 
 - **Reservations take effect on renewal.** A client keeps its current address until its DHCP lease renews. To apply a reservation right away, reconnect the client.
 - **Some changes interrupt the network.** Saving a Wi-Fi change restarts the radios, so every Wi-Fi device reconnects within 10 to 30 seconds. Rebooting a Deco takes it offline for 3 to 5 minutes; rebooting the main Deco takes the whole network down for that long.
 - **QoS and client priority.** Client priority only works after you set your internet speeds in the QoS card. Set them to about 90% of what your plan really delivers; QoS throttles your connection to whatever you enter.
-- **Not available locally:** speed tests (the Deco accepts the command but needs TP-Link's cloud to run one), immediate firmware updates (deco-local schedules automatic updates instead), and editing WAN or LAN addresses.
+- **Internet and LAN settings are untested on hardware.** They send the same requests as the Deco app, worked out from its code, but nobody has run them against a live Deco yet. A wrong internet setting can leave you offline until you correct it; deco-local keeps working over your LAN, so you can. Changing the Deco's LAN address gives every device a new address and breaks reservations and port forwards in the old range. If you try one of these settings, open an issue with the result.
+- **Not available locally:** speed tests (the Deco accepts the command but needs TP-Link's cloud to run one) and immediate firmware updates (deco-local schedules automatic updates instead).
 - **Credentials are stored in plain text** in `deco.env` or `~/.tplink_cloud`. Keep those files readable only by you.
 - **Tested hardware.** deco-local is tested with a Deco X60 (hardware 4.0, firmware 1.7.1) and X55 satellites. Other Deco models that the Deco app manages locally probably work. If you try one, open an issue with the result.
 

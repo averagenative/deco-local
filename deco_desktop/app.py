@@ -11,6 +11,7 @@ from gi.repository import GLib, Gtk, Gio  # noqa: E402
 
 from . import backend as be  # noqa: E402
 from .screens.clients import ClientsScreen  # noqa: E402
+from .screens.internet import InternetScreen  # noqa: E402
 from .screens.mesh import MeshScreen  # noqa: E402
 from .screens.overview import OverviewScreen  # noqa: E402
 from .screens.portforward import PortForwardScreen  # noqa: E402
@@ -92,6 +93,7 @@ class MainWindow(Gtk.ApplicationWindow):
             ("Reservations", "reservations", ReservationsScreen(self)),
             ("Wi-Fi", "wifi", WifiScreen(self)),
             ("Mesh", "mesh", MeshScreen(self)),
+            ("Internet & LAN", "internet", InternetScreen(self)),
             ("Network", "network", NetworkScreen(self)),
             ("Security", "security", SecurityScreen(self)),
             ("System", "system", SystemScreen(self)),

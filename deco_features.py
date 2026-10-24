@@ -6,6 +6,7 @@ the overview, the settings registry, Wi-Fi changes, and decoded names.
 """
 
 import base64
+import ipaddress
 
 import deco_api
 
@@ -154,3 +155,127 @@ def set_wifi_network(d, network, ssid=None, password=None, enable=None, secured=
     partial = {band: {network: dict(fields)} for band, b in d.wireless().items()
                if isinstance(b, dict) and isinstance(b.get(network), dict)}
     return d.write_wireless(partial)
+
+
+# ---- WAN / LAN (UNTESTED on hardware; shapes mirror the app, see docs/WRITES.md) ----
+DIAL_TYPES = ("dynamic_ip", "static_ip", "pppoe")
+
+
+def wan_settings(d):
+    """The internet connection, flattened for a form: dial_type, DNS, MTU, ping, and the
+    static-IP or PPPoE fields when the Deco reports them."""
+    wan = (d.ipv4() or {}).get("wan", {})
+    info = wan.get("ip_info") or {}
+    user = wan.get("user_info") or {}
+    return {"dial_type": wan.get("dial_type"), "enable_auto_dns": wan.get("enable_auto_dns"),
+            "dns1": info.get("dns1"), "dns2": info.get("dns2"), "mtu_size": wan.get("mtu_size"),
+            "support_mtu_size": wan.get("support_mtu_size"), "enable_ping": wan.get("enable_ping"),
+            "ip": info.get("ip"), "mask": info.get("mask"), "gateway": info.get("gateway"),
+            "username": user.get("username"), "mac": info.get("mac")}
+
+
+def _ipv4(value, label):
+    try:
+        return str(ipaddress.IPv4Address(str(value).strip()))
+    except ValueError:
+        raise ValueError(f"{label} is not a valid IPv4 address") from None
+
+
+def wan_body(current, dial_type, enable_auto_dns=True, dns1=None, dns2=None, mtu_size=None,
+             ip=None, mask=None, gateway=None, username=None, password=None):
+    """Build the `wan` object the Deco app sends (IPv4ConnectionDetailFragment.t2): the dial
+    type, support_mtu_size, and only that type's fields. Raises ValueError on bad input."""
+    if dial_type not in DIAL_TYPES:
+        raise ValueError(f"Connection type must be one of {', '.join(DIAL_TYPES)}")
+    if dial_type == "pppoe" and (not username or not password):
+        raise ValueError("PPPoE needs the username and password from your ISP")
+    top = 1492 if dial_type == "pppoe" else 1500
+    if mtu_size in (None, ""):
+        mtu_size = current.get("mtu_size") or 1500
+        if int(mtu_size) > top:
+            mtu_size = 1480   # the usual PPPoE MTU when switching from a 1500-byte connection
+    mtu = int(mtu_size)
+    if not 576 <= mtu <= top:
+        raise ValueError(f"MTU must be between 576 and {top}")
+    wan = {"dial_type": dial_type}
+    if current.get("support_mtu_size") is not None:
+        wan["support_mtu_size"] = current["support_mtu_size"]
+    dns = {}
+    if dial_type == "static_ip" or not enable_auto_dns:
+        dns["dns1"] = _ipv4(dns1, "Primary DNS")
+        dns["dns2"] = _ipv4(dns2, "Secondary DNS") if dns2 else ""
+    if dial_type == "dynamic_ip":
+        wan.update(enable_auto_dns=bool(enable_auto_dns), mtu_size=mtu)
+        if dns:
+            wan["ip_info"] = dns
+    elif dial_type == "static_ip":
+        ip_, mask_, gw = _ipv4(ip, "IP address"), _ipv4(mask, "Subnet mask"), _ipv4(gateway, "Gateway")
+        try:
+            net = ipaddress.IPv4Network(f"{ip_}/{mask_}", strict=False)
+        except ValueError:
+            raise ValueError("Subnet mask is not a valid netmask") from None
+        if ipaddress.IPv4Address(gw) not in net:
+            raise ValueError("The gateway must be in the same subnet as the IP address")
+        wan.update(ip_info={"ip": ip_, "mask": mask_, "gateway": gw, **dns}, mtu_size=mtu)
+    else:
+        wan.update(enable_auto_dns=bool(enable_auto_dns), mtu_size=mtu,
+                   user_info={"username": username, "password": password})
+        if dns:
+            wan["ip_info"] = dns
+    return wan
+
+
+def set_wan(d, **form):
+    """Apply a WAN form (see wan_body). UNTESTED on hardware."""
+    return d.set_wan(wan_body(wan_settings(d), **form))
+
+
+def set_wan_ping(d, enable):
+    """Answer pings on the WAN, sent the way the app does: only enable_ping."""
+    return d.set_wan({"enable_ping": bool(enable)})
+
+
+def lan_settings(d):
+    lan = d.lan_ip() or {}
+    return {"lan_ip": lan.get("lan_ip") or {}, "dhcp": d.dhcp() or {}}
+
+
+def check_lan_ip(ip, mask):
+    ip_, mask_ = _ipv4(ip, "Deco address"), _ipv4(mask, "Subnet mask")
+    try:
+        net = ipaddress.IPv4Network(f"{ip_}/{mask_}", strict=False)
+    except ValueError:
+        raise ValueError("Subnet mask is not a valid netmask") from None
+    if not net.is_private:
+        raise ValueError("The Deco's address must be in a private range (10.x, 172.16-31.x, or 192.168.x)")
+    if ipaddress.IPv4Address(ip_) in (net.network_address, net.broadcast_address):
+        raise ValueError("That address is the network or broadcast address of the subnet")
+    return ip_, mask_
+
+
+def set_lan_ip(d, ip, mask):
+    """Change the Deco's own LAN address. UNTESTED on hardware."""
+    return d.set_lan_ip(*check_lan_ip(ip, mask))
+
+
+def set_dhcp(d, start_ip=None, end_ip=None, dns1=None, dns2=None):
+    """Change the DHCP pool and the DNS servers it hands out. UNTESTED on hardware."""
+    lan = (d.lan_ip() or {}).get("lan_ip") or {}
+    cur = d.dhcp() or {}
+    start = _ipv4(start_ip or cur.get("start_ip"), "Pool start")
+    end = _ipv4(end_ip or cur.get("end_ip"), "Pool end")
+    if lan.get("ip") and lan.get("mask"):
+        net = ipaddress.IPv4Network(f"{lan['ip']}/{lan['mask']}", strict=False)
+        for label, a in (("Pool start", start), ("Pool end", end)):
+            if ipaddress.IPv4Address(a) not in net:
+                raise ValueError(f"{label} {a} is outside the Deco's subnet {net}")
+        if ipaddress.IPv4Address(lan["ip"]) in (ipaddress.IPv4Address(start), ipaddress.IPv4Address(end)):
+            raise ValueError("The pool can't start or end on the Deco's own address")
+    if ipaddress.IPv4Address(start) > ipaddress.IPv4Address(end):
+        raise ValueError("Pool start must come before pool end")
+    changes = {"start_ip": start, "end_ip": end}
+    if dns1 is not None:
+        changes["dns1"] = _ipv4(dns1, "Primary DNS") if dns1 else ""
+    if dns2 is not None:
+        changes["dns2"] = _ipv4(dns2, "Secondary DNS") if dns2 else ""
+    return d.set_dhcp(**changes)

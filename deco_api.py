@@ -738,6 +738,23 @@ class DecoLocal:
         # The GET omits bandwidth_mode, but the SET requires it ("custom" or "speedtest").
         return self._update("BANDWIDTH_GET", "BANDWIDTH_SET", {"bandwidth_mode": "custom", **changes})
 
+    # ---- WAN / LAN (shapes from the app's beans; NOT verified on hardware: see docs/WRITES.md) ----
+    def set_wan(self, wan: dict):
+        """DISRUPTIVE, UNTESTED: re-applies the internet connection. `wan` holds only what the
+        app's IPv4WanBean would carry for the chosen dial_type (see deco_features.wan_body)."""
+        return self.write("IPV4_SET", {"wan": wan}, "set")
+
+    def set_lan_ip(self, ip: str, mask: str):
+        """DISRUPTIVE, UNTESTED: changes the Deco's own LAN address (LanIPParam)."""
+        return self.write("LAN_IP_SET", {"lan_ip": {"ip": ip, "mask": mask}}, "set")
+
+    def set_dhcp(self, **changes):
+        """UNTESTED: the DHCP server pool and DNS (DHCPServerBean: start_ip, end_ip, gateway,
+        dns1, dns2, lease_time). Sends the current values merged with `changes`."""
+        cur = {k: v for k, v in self.dhcp().items() if k in ("start_ip", "end_ip", "gateway", "dns1", "dns2", "lease_time")}
+        cur.update(changes)
+        return self.write("DHCP_SET", cur, "set")
+
     # ---- disruptive (Phase 2): reboots ----
     def reboot_devices(self, device_ids):
         """Reboot Deco node(s) by device_id. The node drops off the mesh for 3-5 minutes;

@@ -10,7 +10,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 
 __all__ = ["main", "__version__"]
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def main(argv=None):

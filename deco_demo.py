@@ -79,6 +79,12 @@ class DemoDeco:
         self._routes = [{"id": "1", "ip": "10.20.0.0", "mask": "255.255.255.0", "gateway": "192.168.68.10",
                          "interface": "lan", "name": _b64("lab network"), "enable": True}]
         self._sites = ["intranet.example.com"]
+        self._wan = {"dial_type": "dynamic_ip", "enable_auto_dns": True, "mtu_size": 1500, "support_mtu_size": True,
+                     "enable_ping": True, "ip_info": {"ip": "203.0.113.24", "gateway": "203.0.113.1",
+                                                      "mask": "255.255.255.0", "dns1": "203.0.113.1", "dns2": ""}}
+        self._lan = {"ip": "192.168.68.1", "mask": "255.255.252.0"}
+        self._dhcp = {"start_ip": "192.168.68.100", "end_ip": "192.168.71.249", "gateway": "192.168.68.1",
+                      "dns1": "1.1.1.1", "dns2": "9.9.9.9"}
         self._settings = {
             "upnp": {"enable": True}, "sip_alg": {"enable": True}, "client_isolation": {"enable": False},
             "monthly_report": {"enable": True},
@@ -164,16 +170,26 @@ class DemoDeco:
                                       {"device_id": "demo-2", "down_speed": 96, "up_speed": 14}]}
 
     def lan_ip(self):
-        return {"lan_ip": {"ip": "192.168.68.1", "mask": "255.255.252.0"}, "dns_server_ip": ["1.1.1.1", "9.9.9.9"],
-                "wan_ip": ["203.0.113.24"]}
+        return {"lan_ip": dict(self._lan), "dns_server_ip": ["1.1.1.1", "9.9.9.9"], "wan_ip": ["203.0.113.24"]}
 
     def ipv4(self):
-        return {"wan": {"dial_type": "dynamic_ip", "ip_info": {"ip": "203.0.113.24", "gateway": "203.0.113.1",
-                                                               "mask": "255.255.255.0"}}}
+        return {"wan": copy.deepcopy(self._wan), "lan": {"ip_info": dict(self._lan)}}
 
     def dhcp(self):
-        return {"start_ip": "192.168.68.100", "end_ip": "192.168.71.249", "gateway": "192.168.68.1",
-                "dns1": "1.1.1.1", "dns2": "9.9.9.9", "ip_amount_in_use": 10}
+        return {**self._dhcp, "ip_amount_in_use": 10}
+
+    def set_wan(self, wan):
+        info = {**self._wan.get("ip_info", {}), **wan.get("ip_info", {})}
+        self._wan.update({k: v for k, v in wan.items() if k != "ip_info"}, ip_info=info)
+        return {"error_code": 0}
+
+    def set_lan_ip(self, ip, mask):
+        self._lan.update(ip=ip, mask=mask)
+        return {"error_code": 0}
+
+    def set_dhcp(self, **changes):
+        self._dhcp.update(changes)
+        return {"error_code": 0}
 
     def fw_latest(self):
         return [{"device_model": "X60", "name": _b64("X60"), "version": _b64("1.7.1 Build 25080612 Rel. 70421"),

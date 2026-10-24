@@ -126,6 +126,23 @@ A second read sweep found 51 more working reads (see FEATURES.md). These writes 
 
 Skipped on purpose: `ipv4` and `mac_clone` write-backs (they rewrite the WAN, including the DHCP-assigned public IP; nothing in the UIs edits them) and `operation_mode` (reboots the whole mesh).
 
+### WAN and LAN (shipped UNTESTED, 2026-10-24)
+
+These writes change the internet connection or the LAN subnet, so they were not run on hardware: not even an idempotent write-back, which would still re-apply the WAN. Each body mirrors exactly what the Deco app builds, traced in its code, and the reads behind the forms were checked on a live X60.
+
+| method | opcode | body | source in the app |
+|--------|--------|------|-------------------|
+| `deco_features.set_wan` (dynamic IP) | `0x4005` | `{"wan": {dial_type: "dynamic_ip", support_mtu_size, enable_auto_dns, mtu_size, ip_info: {dns1, dns2} only when DNS is manual}}` | `IPv4ConnectionDetailFragment.t2()` + `m2()` |
+| `deco_features.set_wan` (static IP) | `0x4005` | `{"wan": {dial_type: "static_ip", support_mtu_size, ip_info: {ip, mask, gateway, dns1, dns2}, mtu_size}}` | `t2()` + `s2()` |
+| `deco_features.set_wan` (PPPoE) | `0x4005` | `{"wan": {dial_type: "pppoe", support_mtu_size, enable_auto_dns, mtu_size, user_info: {username, password}, ip_info: {dns1, dns2} when manual}}`; credentials are plain text (the app neither encodes nor decodes them) | `t2()` + `q2()` |
+| `deco_features.set_wan_ping` | `0x4005` | `{"wan": {enable_ping}}`, a partial write | `u.J0()` |
+| `set_lan_ip(ip, mask)` | `0x4212` (`LAN_IP_SET`, not `IPV4_SET`) | `{"lan_ip": {ip, mask}}` | `lan/repository/i.C()` (LanIPParam) |
+| `set_dhcp(**ch)` | `0x4214` | `{start_ip, end_ip, gateway, dns1, dns2}` (DHCPServerBean; `lease_time` is omitted because the GET doesn't return it) | `lan/repository/i.B()` |
+
+Like every other write, the app sends only these fields, never the full IPV4_GET object. The old `set_ipv4()` full write-back is kept only for the harness and should not be used. The app changes the LAN address on its own, without a DHCP update in the same step, so whether the Deco moves the DHCP pool into a new subnet is unknown; the UIs tell the user to check the pool afterward. `deco_features` validates input before anything is sent: IPv4 syntax, gateway in the subnet, MTU 576 to 1500 (1492 for PPPoE), a private LAN range, and the pool inside the LAN subnet.
+
+Confidence: a wrong body is far more likely to be rejected (as every other shape mismatch was) than applied wrongly. The real risk is a well-formed change with bad values, which the confirmations spell out.
+
 Units and encodings: per-client and per-node speeds are KB/s. QoS limits are Kbps (1 Mbps = 1024). LED, Wi-Fi schedule, reboot, and firmware windows are minutes after midnight.
 
 Not usable locally: `SPEEDTEST_START` (`0x4011`, `{"is_auto": true}`) is accepted, but no test runs. The server list is empty, and `SPEEDTEST_LATEST_GET`/`SPEEDTEST_HISTORY_GET` return protocol status 12. Speed tests appear to need TP-Link's cloud.

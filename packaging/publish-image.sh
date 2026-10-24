@@ -34,7 +34,7 @@ podman manifest create "$MANIFEST"
 
 # --format docker keeps the HEALTHCHECK (the OCI format drops it).
 if [ -n "${ARM64_HOST:-}" ]; then
-    git fetch -q origin && git merge-base --is-ancestor "$REV" origin/HEAD || {
+    git fetch -q origin && git branch -r --contains "$REV" | grep -q "origin/" || {
         echo "Push $REV first: $ARM64_HOST builds it from $REPO_URL." >&2; exit 1; }
     podman build --format docker --platform linux/amd64 --build-arg VERSION="$VERSION" -t localhost/deco-local:amd64 .
     echo "== building linux/arm64 on $ARM64_HOST"

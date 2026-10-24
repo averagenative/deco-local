@@ -1,4 +1,5 @@
-"""Clients screen: fast live client list with sort, auto-refresh, and rename."""
+"""Clients screen: live client list with search, an online-only filter, traffic, and
+rename / reserve / block actions."""
 
 from gi.repository import GLib, Gtk
 
@@ -6,6 +7,7 @@ import deco_api
 import deco_features
 
 from . import Screen
+from .overview import speed
 from ..widgets import FormDialog, Table
 
 AUTO_REFRESH_SECONDS = 20
@@ -13,6 +15,24 @@ AUTO_REFRESH_SECONDS = 20
 
 def _name(c):
     return c.get("name") or c.get("mac", "")
+
+
+def _type(c):
+    t = c.get("custom_client_type") if c.get("has_set_client_type") and c.get("custom_client_type") else c.get("client_type")
+    return str(t or "").replace("_", " ")
+
+
+def _link(c):
+    link = str(c.get("wire_type") or "").replace("_", " ")
+    net = c.get("interface")
+    return f"{link}, {net} network" if net and net != "main" else link
+
+
+def _ip_num(c):
+    try:
+        return int.from_bytes(bytes(int(o) for o in c.get("ip", "").split(".")), "big")
+    except ValueError:
+        return -1
 
 
 class ClientsScreen(Screen):
@@ -28,26 +48,39 @@ class ClientsScreen(Screen):
         self.add_action("Block…", self._block_selected)
         self.add_action("Blocked…", self._show_blocked)
 
-        self._count = Gtk.Label(xalign=0)
+        filters = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self._search = Gtk.SearchEntry(placeholder_text="Filter by name, IP, MAC, or brand", hexpand=True)
+        self._search.connect("search-changed", lambda _e: self._apply_filter())
+        filters.append(self._search)
+        self._online_only = Gtk.CheckButton(label="Online only", active=True)
+        self._online_only.connect("toggled", lambda _b: self._apply_filter())
+        filters.append(self._online_only)
+        self._count = Gtk.Label(xalign=1)
         self._count.add_css_class("dim-label")
-        self.append(self._count)
+        filters.append(self._count)
+        self.append(filters)
 
         self.table = Table(
             columns=[
-                ("Name", _name, True),
-                ("IP", lambda c: c.get("ip", ""), True),
+                ("Name", lambda c: f"{_name(c)} ({c['brand']})" if c.get("brand") and c["brand"] != "unknown" else _name(c),
+                 True, lambda c: _name(c).lower()),
+                ("IP", lambda c: f"{c.get('ip', '')}{' · reserved' if c.get('_reserved') else ''}", True, _ip_num),
                 ("MAC", lambda c: c.get("mac", ""), True),
-                ("Type", lambda c: c.get("client_type", ""), True),
-                ("Link", lambda c: c.get("wire_type", ""), True),
-                ("Online", lambda c: "online" if c.get("online") else "offline", True),
-                ("Down KB/s", lambda c: c.get("_down", ""), True),
-                ("Up KB/s", lambda c: c.get("_up", ""), True),
+                ("Type", _type, True),
+                ("Link", _link, True),
+                ("Status", lambda c: "online" if c.get("online") else "offline", True),
+                ("Down", lambda c: speed(c.get("_down")) if c.get("online") else "-", True, lambda c: c.get("_down", -1)),
+                ("Up", lambda c: speed(c.get("_up")) if c.get("online") else "-", True, lambda c: c.get("_up", -1)),
             ],
             on_activate=lambda _row: self._rename_selected(),
+            widths={"IP": 200, "MAC": 185, "Type": 95, "Link": 100, "Status": 75, "Down": 82, "Up": 82},
         )
+        self.table.sort_by("Status", descending=True)
         self.append(self.table.scroller)
 
+        self._all = []
         self._timer = None
+        self._apply_filter()
 
     # ---- data ----
     def refresh(self):
@@ -56,21 +89,41 @@ class ClientsScreen(Screen):
 
     @staticmethod
     def _fetch(d):
-        """Clients plus their live throughput (KB/s), merged per MAC."""
+        """Clients plus their live throughput (KB/s) and reserved address, merged per MAC."""
         clients = d.clients()
         try:
             speeds = d.client_list_speeds()
         except deco_api.DecoError:
             speeds = {}
+        try:
+            reserved = {r["mac"]: r["ip"] for r in d.reservations()}
+        except deco_api.DecoError:
+            reserved = {}
         for c in clients:
             if c.get("online") and c.get("mac") in speeds:
                 c["_down"], c["_up"] = speeds[c["mac"]]
+            c["_reserved"] = reserved.get(c.get("mac"), "")
         return clients
 
     def _populate(self, clients):
-        online = sum(1 for c in clients if c.get("online"))
+        self._all = clients
         self.table.set_rows(clients)
-        self._count.set_text(f"{online} online · {len(clients)} known")
+        self._apply_filter()
+
+    def _apply_filter(self):
+        q = self._search.get_text().strip().lower()
+        online_only = self._online_only.get_active()
+
+        def keep(c):
+            if online_only and not c.get("online"):
+                return False
+            return not q or any(q in str(c.get(k) or "").lower() for k in ("name", "ip", "mac", "brand", "client_type"))
+
+        self.table.set_filter(keep)
+        online = sum(1 for c in self._all if c.get("online"))
+        shown = self.table.visible_count()
+        self._count.set_text(f"{online} online · {len(self._all)} known" + (f" · {shown} shown" if q else "")
+                             if self._all else "")
 
     # ---- rename ----
     def _rename_selected(self):
@@ -99,6 +152,9 @@ class ClientsScreen(Screen):
         client = self.table.selected()
         if client is None:
             self.window.toast("Select a client first.")
+            return
+        if client.get("_reserved"):
+            self.window.toast(f"{_name(client)} is already reserved at {client['_reserved']}.")
             return
         self.window.reserve_for_client(client.get("mac", ""), client.get("ip", ""))
 
@@ -159,6 +215,7 @@ class ClientsScreen(Screen):
         return True  # keep the timer alive
 
     def on_disconnected(self):
+        self._all = []
         self.table.set_rows([])
-        self._count.set_text("")
+        self._apply_filter()
         self._sync_timer()

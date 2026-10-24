@@ -10,6 +10,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Gio  # noqa: E402
 
 from . import backend as be  # noqa: E402
+from . import themes  # noqa: E402
 from .screens.clients import ClientsScreen  # noqa: E402
 from .screens.internet import InternetScreen  # noqa: E402
 from .screens.mesh import MeshScreen  # noqa: E402
@@ -22,7 +23,6 @@ from .widgets import FormDialog  # noqa: E402
 
 APP_ID = "io.github.averagenative.DecoDesktop"
 SETTINGS = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "deco-desktop" / "settings.json"
-THEMES = ("Dark", "Light")
 
 
 def _load_settings():
@@ -40,8 +40,6 @@ def _save_settings(settings):
         pass
 
 
-def _apply_theme(name):
-    Gtk.Settings.get_default().set_property("gtk-application-prefer-dark-theme", name != "Light")
 
 _STATE_TEXT = {
     be.DISCONNECTED: "Disconnected",
@@ -54,7 +52,7 @@ _STATE_TEXT = {
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Deco Desktop")
-        self.set_default_size(1100, 720)
+        self.set_default_size(1240, 760)
         self.backend = be.Backend(on_state_change=self._on_state_change)
 
         # --- header ---
@@ -67,12 +65,10 @@ class MainWindow(Gtk.ApplicationWindow):
         signin.connect("clicked", lambda _b: self.sign_in())
         header.pack_start(signin)
 
-        theme = _load_settings().get("theme", "Dark")
-        theme = theme if theme in THEMES else "Dark"
-        _apply_theme(theme)
-        self._theme = Gtk.DropDown.new_from_strings(list(THEMES))
+        theme = themes.apply(_load_settings().get("theme", themes.DEFAULT))
+        self._theme = Gtk.DropDown.new_from_strings(list(themes.THEMES))
         self._theme.set_tooltip_text("Theme")
-        self._theme.set_selected(THEMES.index(theme))
+        self._theme.set_selected(themes.THEMES.index(theme))
         self._theme.connect("notify::selected", self._on_theme_changed)
         header.pack_end(self._theme)
 
@@ -164,8 +160,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 return
 
     def _on_theme_changed(self, dropdown, _pspec):
-        name = THEMES[dropdown.get_selected()]
-        _apply_theme(name)
+        name = themes.apply(themes.THEMES[dropdown.get_selected()])
         _save_settings({**_load_settings(), "theme": name})
 
     def sign_in(self):

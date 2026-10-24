@@ -66,7 +66,7 @@ To try the UI without a Deco, start the container with `DECO_DEMO=1`, for exampl
 
 ![Adding a port-forwarding rule in the web UI](docs/screenshots/web-port-forwarding.png)
 
-The web UI has five themes: Terminal, Midnight, Amber CRT, and Dracula (dark), and Daylight (light). It also works at phone width.
+The web UI and the desktop app share five themes: Terminal, Midnight, Amber CRT, and Dracula (dark), and Daylight (light). The web UI also works at phone width.
 
 ![The Wi-Fi tab in the Midnight theme, with the main, guest, and IoT networks](docs/screenshots/web-wifi.png)
 
@@ -117,7 +117,7 @@ You configure the server with these environment variables:
 
 ## Install the desktop app
 
-Deco Desktop is a GTK 4 app with Clients, Port Forwarding, and Reservations screens. It ships as an AppImage that bundles Python, GTK 4, and its other libraries. It runs on Linux distributions with glibc 2.41 or later, such as Fedora 42, Ubuntu 25.04, Debian 13, and later releases.
+Deco Desktop is a GTK 4 app with the same features as the web UI: the same screens (Internet & LAN gets a screen of its own), the client search and filters, and the same five themes. It ships as an AppImage that bundles Python, GTK 4, and its other libraries. It runs on Linux distributions with glibc 2.41 or later, such as Fedora 42, Ubuntu 25.04, Debian 13, and later releases.
 
 ![Deco Desktop showing the overview: internet, home network, firmware, and each Deco's load](docs/screenshots/desktop.png)
 

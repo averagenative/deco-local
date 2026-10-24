@@ -17,6 +17,13 @@ def _backhaul(n):
     return " + ".join({"band5": "5 GHz", "band2_4": "2.4 GHz"}.get(b, b) for b in ct)
 
 
+def _signal(n):
+    sig = n.get("signal_level") or {}
+    if n.get("role") == "master" or n.get("group_status") != "connected" or not (sig.get("band5") or sig.get("band2_4")):
+        return "-"
+    return f"5 GHz {sig.get('band5', '-')}, 2.4 GHz {sig.get('band2_4', '-')}"
+
+
 class MeshScreen(Screen):
     def __init__(self, window):
         super().__init__(window, "Mesh")
@@ -29,9 +36,12 @@ class MeshScreen(Screen):
             ("Role", lambda n: "main" if n.get("role") == "master" else "satellite", True),
             ("Status", lambda n: "online" if n.get("group_status") == "connected" else "offline", True),
             ("IP", lambda n: n.get("ip") or "-", True),
+            ("MAC", lambda n: n.get("mac") or "-", True),
             ("Backhaul", _backhaul, False),
+            ("Signal", _signal, False),
             ("Firmware", lambda n: (n.get("software_ver") or "-").split(" Rel")[0], False),
-        ], on_activate=lambda _n: self._rename())
+        ], on_activate=lambda _n: self._rename(),
+            widths={"Model": 60, "Role": 80, "Status": 72, "IP": 135, "MAC": 185, "Backhaul": 128, "Signal": 128, "Firmware": 120})
         self.append(self.table.scroller)
 
         self.led = SettingsGroup(

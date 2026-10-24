@@ -110,7 +110,6 @@ class NetworkScreen(SettingsScreen):
         self.add_action("Delete route", self._delete_route)
 
     def build_extra(self):
-        self.dhcp_info = self.info_frame("DHCP server")
         self.ddns_info = self.info_frame("Dynamic DNS")
         heading = Gtk.Label(label="Static routes", xalign=0)
         heading.add_css_class("heading")
@@ -130,11 +129,7 @@ class NetworkScreen(SettingsScreen):
         return deco_features.static_routes(d)
 
     def populate_extra(self, settings, routes):
-        dhcp, ddns = settings.get("dhcp") or {}, settings.get("ddns") or {}
-        self.dhcp_info([("Range", f"{dhcp.get('start_ip')} to {dhcp.get('end_ip')}" if dhcp.get("start_ip") else None),
-                        ("Gateway", dhcp.get("gateway")),
-                        ("DNS", ", ".join(x for x in (dhcp.get("dns1"), dhcp.get("dns2")) if x)),
-                        ("Addresses in use", dhcp.get("ip_amount_in_use"))])
+        ddns = settings.get("ddns") or {}
         self.ddns_info([("Status", "on" if ddns.get("ddns_enable") else "off"),
                         ("Connection", ((ddns.get("ddns_info") or {}).get("connection_status") or "").replace("_", " "))],
                        note="Read only here: setting up DDNS needs a TP-Link DDNS account.")
@@ -200,6 +195,7 @@ class SecurityScreen(SettingsScreen):
         self.add_action("Remove website", self._remove_site)
 
     def build_extra(self):
+        self.info_frame("Blocked clients")([], note="To block or unblock a device, use Block… or Blocked… on the Clients screen.")
         heading = Gtk.Label(label="Allowed websites (HomeShield never blocks these)", xalign=0)
         heading.add_css_class("heading")
         self.body.append(heading)

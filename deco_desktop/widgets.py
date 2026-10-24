@@ -1,6 +1,6 @@
 """Reusable GTK4 widgets: a sortable column-view table over plain python row dicts."""
 
-from gi.repository import GObject, Gio, Gtk
+from gi.repository import GObject, Gio, Gtk, Pango
 
 
 class FormDialog(Gtk.Window):
@@ -81,10 +81,13 @@ class Row(GObject.Object):
 class Table:
     """A Gtk.ColumnView backed by a Gio.ListStore of Row objects.
 
-    columns: list of (title, getter, sortable) where getter(data) -> str.
+    columns: list of (title, getter, sortable) or (title, getter, sortable, sort_key), where
+    getter(data) -> str is what the cell shows and sort_key(data), when given, is what the
+    column sorts by (for example a number behind "1.8 MB/s"). set_filter() hides rows.
+    widths maps a column title to a fixed width in pixels; the other columns share the rest.
     """
 
-    def __init__(self, columns, on_activate=None):
+    def __init__(self, columns, on_activate=None, widths=None):
         self._columns = columns
         self.store = Gio.ListStore(item_type=Row)
 
@@ -92,12 +95,21 @@ class Table:
         self.view.set_show_row_separators(True)
         self.view.set_show_column_separators(True)
 
-        sort_model = Gtk.SortListModel(model=self.store, sorter=self.view.get_sorter())
+        self._filter_fn = None
+        self._filter = Gtk.CustomFilter.new(lambda item, *_: self._filter_fn is None or bool(self._filter_fn(item.data)))
+        filter_model = Gtk.FilterListModel(model=self.store, filter=self._filter)
+        sort_model = Gtk.SortListModel(model=filter_model, sorter=self.view.get_sorter())
         self.selection = Gtk.SingleSelection(model=sort_model)
         self.view.set_model(self.selection)
 
-        for title, getter, sortable in columns:
-            self.view.append_column(self._make_column(title, getter, sortable))
+        self._by_title = {}
+        for title, getter, sortable, *key in columns:
+            col = self._make_column(title, getter, sortable, key[0] if key else None)
+            self._by_title[title] = col
+            if widths and title in widths:
+                col.set_fixed_width(widths[title])
+                col.set_expand(False)
+            self.view.append_column(col)
 
         if on_activate is not None:
             self.view.connect("activate", lambda _v, pos: on_activate(self.selected()))
@@ -106,7 +118,7 @@ class Table:
         self.scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.scroller.set_child(self.view)
 
-    def _make_column(self, title, getter, sortable):
+    def _make_column(self, title, getter, sortable, sort_key=None):
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_setup)
         factory.connect("bind", self._on_bind, getter)
@@ -114,12 +126,13 @@ class Table:
         col.set_resizable(True)
         col.set_expand(True)
         if sortable:
-            col.set_sorter(Gtk.CustomSorter.new(self._compare_factory(getter)))
+            col.set_sorter(Gtk.CustomSorter.new(self._compare_factory(sort_key or getter)))
         return col
 
     @staticmethod
     def _on_setup(_factory, item):
-        label = Gtk.Label(xalign=0)
+        # Ellipsize so columns can shrink to fit the window; the tooltip shows the full text.
+        label = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END, width_chars=4)
         label.set_margin_start(6)
         label.set_margin_end(6)
         item.set_child(label)
@@ -127,7 +140,10 @@ class Table:
     @staticmethod
     def _on_bind(_factory, item, getter):
         row = item.get_item()
-        item.get_child().set_text(str(getter(row.data)))
+        text = str(getter(row.data))
+        label = item.get_child()
+        label.set_text(text)
+        label.set_tooltip_text(text if len(text) > 12 else None)
 
     @staticmethod
     def _compare_factory(getter):
@@ -142,6 +158,18 @@ class Table:
                 return (sa > sb) - (sa < sb)
 
         return compare
+
+    def set_filter(self, fn):
+        """Show only rows where fn(data) is true; None shows every row."""
+        self._filter_fn = fn
+        self._filter.changed(Gtk.FilterChange.DIFFERENT)
+
+    def sort_by(self, title, descending=False):
+        self.view.sort_by_column(self._by_title[title],
+                                 Gtk.SortType.DESCENDING if descending else Gtk.SortType.ASCENDING)
+
+    def visible_count(self):
+        return self.selection.get_n_items()
 
     def set_rows(self, items):
         """Replace all rows with `items` (list of payloads)."""

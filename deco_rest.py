@@ -166,7 +166,7 @@ session = Session(
 
 app = FastAPI(
     title="Deco Local API",
-    version="1.2.0",
+    version="1.3.0",
     description="Strictly-local REST control for a TP-Link Deco mesh (no cloud/NOC).",
 )
 

@@ -2,12 +2,14 @@
 
 import datetime
 
-from gi.repository import Gtk
+from gi.repository import GLib, Gtk
 
 import deco_features
 
 from . import Screen
 from ..widgets import Table, group_frame, kv_grid
+
+AUTO_REFRESH_SECONDS = 10
 
 
 def speed(kb):
@@ -29,6 +31,13 @@ def _message_text(m):
 class OverviewScreen(Screen):
     def __init__(self, window):
         super().__init__(window, "Overview")
+
+        self._auto = Gtk.CheckButton(label="Auto-refresh")
+        self._auto.set_active(True)
+        self._auto.connect("toggled", lambda _b: self._sync_timer())
+        self.toolbar.append(self._auto)
+        self._timer = None
+
         scroller = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         scroller.set_child(body)
@@ -61,6 +70,7 @@ class OverviewScreen(Screen):
         body.append(self._messages)
 
     def refresh(self):
+        self._sync_timer()
         self.run_call(deco_features.overview, self._populate, label="overview")
 
     def _populate(self, o):
@@ -87,13 +97,32 @@ class OverviewScreen(Screen):
             frame, box = group_frame(title)
             box.append(kv_grid(pairs))
             self._cards.append(frame)
-        self.nodes.set_rows(sorted(o.get("nodes", []), key=lambda n: (n.get("role") != "master",
-                                                                       n.get("group_status") != "connected", n.get("name", ""))))
+        self._set_nodes(o.get("nodes", []))
         msgs = sorted(o.get("messages", []), key=lambda m: -m.get("timestamp", 0))
         self._messages.set_text("\n".join(
             f"{datetime.date.fromtimestamp(m['timestamp']).isoformat()}  {_message_text(m)}" for m in msgs) or "No messages.")
+
+    def _set_nodes(self, nodes):
+        self.nodes.set_rows(sorted(nodes, key=lambda n: (n.get("role") != "master",
+                                                         n.get("group_status") != "connected", n.get("name", ""))))
+
+    # ---- auto-refresh: just the node stats, the cheap live part of the overview ----
+    def _sync_timer(self):
+        want = self._auto.get_active() and self.window.connected
+        if want and self._timer is None:
+            self._timer = GLib.timeout_add_seconds(AUTO_REFRESH_SECONDS, self._tick)
+        elif not want and self._timer is not None:
+            GLib.source_remove(self._timer)
+            self._timer = None
+
+    def _tick(self):
+        # Only poll when this screen is the visible one and we're connected.
+        if self.window.connected and self.get_mapped():
+            self.run_call(deco_features.node_stats, self._set_nodes, label="node stats")
+        return True  # keep the timer alive
 
     def on_disconnected(self):
         self.nodes.set_rows([])
         self._cards.remove_all()
         self._messages.set_text("")
+        self._sync_timer()

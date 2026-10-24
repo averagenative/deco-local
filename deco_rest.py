@@ -166,7 +166,7 @@ session = Session(
 
 app = FastAPI(
     title="Deco Local API",
-    version="1.3.0",
+    version="1.3.1",
     description="Strictly-local REST control for a TP-Link Deco mesh (no cloud/NOC).",
 )
 
@@ -301,6 +301,12 @@ def remove_reservation(mac: str):
 def overview():
     """Internet, LAN and DHCP, firmware, and every node with CPU, memory, and throughput."""
     return session.call(deco_features.overview)
+
+
+@app.get("/overview/nodes", tags=["overview"])
+def overview_nodes():
+    """Just the nodes with CPU, memory, and throughput, for polling the overview."""
+    return session.call(deco_features.node_stats)
 
 
 @app.get("/clients/speeds", tags=["clients"])

@@ -39,8 +39,8 @@ def devices(d):
     return nodes
 
 
-def overview(d):
-    """Internet, LAN and DHCP, firmware, and every node with CPU, memory, and throughput."""
+def node_stats(d):
+    """Every node with CPU, memory, and throughput: the live part of the overview, cheap to poll."""
     nodes = devices(d)
     res = {r["device_id"]: r for r in _try(d.device_resources, [])}
     spd = {r["device_id"]: r for r in _try(lambda: d.device_speeds().get("device_list_speed", []), [])}
@@ -48,6 +48,12 @@ def overview(d):
         r, sp = res.get(n.get("device_id"), {}), spd.get(n.get("device_id"), {})
         n["cpu_usage"], n["memory_usage"], n["memory_total"] = r.get("cpu_usage"), r.get("memory_usage"), r.get("memory_total")
         n["down_speed"], n["up_speed"] = sp.get("down_speed"), sp.get("up_speed")
+    return nodes
+
+
+def overview(d):
+    """Internet, LAN and DHCP, firmware, and every node with CPU, memory, and throughput."""
+    nodes = node_stats(d)
     fw = [{"model": f.get("device_model"), "name": b64(f.get("name")), "version": b64(f.get("version")),
            "need_to_upgrade": f.get("need_to_upgrade"), "release_note": b64(f.get("release_note")),
            "release_date": f.get("release_date")} for f in _try(d.fw_latest, [])]

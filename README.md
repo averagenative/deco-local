@@ -49,7 +49,7 @@ To start the container, follow these steps:
 
 3. On the same machine, open `http://127.0.0.1:8777/`.
 
-To update, pull the new image and recreate the container: `docker pull ghcr.io/averagenative/deco-local:latest`, then `docker rm -f deco` and run the command in step 2 again. To pin a version, use a tag such as `:1.3.0` or `:1.3` instead of `:latest`.
+To update, pull the new image and recreate the container: `docker pull ghcr.io/averagenative/deco-local:latest`, then `docker rm -f deco` and run the command in step 2 again. To pin a version, use a tag such as `:1.3.1` or `:1.3` instead of `:latest`.
 
 To use Compose instead, clone the repository, create `deco.env` there (`deco.env.example` is a template), and run `docker compose up -d`. To build the image yourself, run `docker build -t ghcr.io/averagenative/deco-local:latest .` in the clone.
 
@@ -145,6 +145,7 @@ The server documents its API with Swagger at `/docs` and publishes the schema at
 |---|---|---|
 | `GET` | `/status` | Session state. Doesn't contact the Deco. |
 | `GET` | `/overview` | Internet, LAN and DHCP, firmware, each node's CPU, memory, and traffic, and messages. |
+| `GET` | `/overview/nodes` | Just each node's CPU, memory, and traffic. The web UI polls it every 10 seconds on the Overview tab. |
 | `GET` | `/devices` | Mesh nodes, each with a display `name`. |
 | `POST` | `/devices/{id}/name` | Rename a Deco. Body: `{"name"}`. |
 | `POST` | `/devices/{id}/reboot` | Reboot a Deco (3 to 5 minutes offline). |

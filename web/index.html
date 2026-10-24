@@ -558,7 +558,7 @@
 
   /* ---------- state ---------- */
   const SRC = {
-    overview: 'overview', clients: 'clients', speeds: 'clients/speeds', blocked: 'clients/blocked',
+    overview: 'overview', nodes: 'overview/nodes', clients: 'clients', speeds: 'clients/speeds', blocked: 'clients/blocked',
     pf: 'port-forwards', res: 'reservations', mesh: 'devices', wifi: 'wifi', settings: 'settings',
     routes: 'routes', websites: 'security/allowed-websites', firmware: 'firmware', wan: 'wan', lan: 'lan',
   };
@@ -872,7 +872,9 @@
     const wan = (o.wan && o.wan.ip_info) || {};
     const lan = o.lan || {};
     const dhcp = o.dhcp || {};
-    const nodes = [...(o.nodes || [])].sort((a, b) =>
+    // The poll refreshes node stats between full overview loads; show whichever is newer.
+    const live = (S.loaded.nodes || 0) > (S.loaded.overview || 0) ? S.data.nodes : o.nodes;
+    const nodes = [...(live || [])].sort((a, b) =>
       (a.role === 'master' ? -1 : 0) - (b.role === 'master' ? -1 : 0) ||
       (a.group_status === 'connected' ? -1 : 0) - (b.group_status === 'connected' ? -1 : 0) ||
       String(a.name).localeCompare(String(b.name)));
@@ -1604,6 +1606,11 @@
   }, 30000);
   setInterval(() => {
     if (document.visibilityState === 'visible' && S.tab === 'clients' && !dlg.open) load('speeds', { quiet: true });
+  }, 10000);
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && S.tab === 'overview' && S.data.overview && !dlg.open) {
+      load('nodes', { quiet: true }).then(renderOverview);
+    }
   }, 10000);
   setInterval(() => { if (document.visibilityState === 'visible') refreshStatus(); }, 15000);
   document.addEventListener('visibilitychange', () => {

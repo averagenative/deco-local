@@ -215,6 +215,7 @@ The repository contains the following:
 - `deco_desktop/`: the GTK 4 desktop app. `./deco-desktop` starts it from source.
 - `deco_demo.py`: the in-memory demo mesh behind `DECO_DEMO=1`.
 - `deco_snapshot.py`: a tool that runs every read and saves the results to a JSON file.
+- `deco_disruptive_test.py`: live tests for the writes that interrupt the network (Wi-Fi, QoS, guest network, reboot). It dry-runs by default; run it with `--run` from a wired machine while someone is home.
 - `packaging/`: the AppImage build and the install script.
 - `docs/`: the protocol notes and screenshots.
 

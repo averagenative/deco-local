@@ -4,7 +4,7 @@ PY ?= python3
 .PHONY: check web demo desktop docker appimage install uninstall
 
 check:
-	$(PY) -m py_compile deco_api.py deco_demo.py deco_features.py deco_log.py deco_rest.py deco_snapshot.py \
+	$(PY) -m py_compile deco_api.py deco_demo.py deco_features.py deco_log.py deco_rest.py deco_snapshot.py deco_disruptive_test.py \
 	    deco_desktop/*.py deco_desktop/screens/*.py
 	sh -n packaging/install.sh
 	sh -n packaging/appimage/AppRun

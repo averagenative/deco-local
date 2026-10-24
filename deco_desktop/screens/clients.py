@@ -2,6 +2,9 @@
 
 from gi.repository import GLib, Gtk
 
+import deco_api
+import deco_features
+
 from . import Screen
 from ..widgets import FormDialog, Table
 
@@ -22,6 +25,8 @@ class ClientsScreen(Screen):
         self.toolbar.append(self._auto)
         self.add_action("Rename…", self._rename_selected)
         self.add_action("Reserve IP…", self._reserve_selected)
+        self.add_action("Block…", self._block_selected)
+        self.add_action("Blocked…", self._show_blocked)
 
         self._count = Gtk.Label(xalign=0)
         self._count.add_css_class("dim-label")
@@ -35,6 +40,8 @@ class ClientsScreen(Screen):
                 ("Type", lambda c: c.get("client_type", ""), True),
                 ("Link", lambda c: c.get("wire_type", ""), True),
                 ("Online", lambda c: "online" if c.get("online") else "offline", True),
+                ("Down KB/s", lambda c: c.get("_down", ""), True),
+                ("Up KB/s", lambda c: c.get("_up", ""), True),
             ],
             on_activate=lambda _row: self._rename_selected(),
         )
@@ -45,7 +52,20 @@ class ClientsScreen(Screen):
     # ---- data ----
     def refresh(self):
         self._sync_timer()
-        self.run_call(lambda d: d.clients(), self._populate, label="clients")
+        self.run_call(self._fetch, self._populate, label="clients")
+
+    @staticmethod
+    def _fetch(d):
+        """Clients plus their live throughput (KB/s), merged per MAC."""
+        clients = d.clients()
+        try:
+            speeds = d.client_list_speeds()
+        except deco_api.DecoError:
+            speeds = {}
+        for c in clients:
+            if c.get("online") and c.get("mac") in speeds:
+                c["_down"], c["_up"] = speeds[c["mac"]]
+        return clients
 
     def _populate(self, clients):
         online = sum(1 for c in clients if c.get("online"))
@@ -82,6 +102,44 @@ class ClientsScreen(Screen):
             return
         self.window.reserve_for_client(client.get("mac", ""), client.get("ip", ""))
 
+    # ---- block ----
+    def _block_selected(self):
+        client = self.table.selected()
+        if client is None:
+            self.window.toast("Select a client first.")
+            return
+        mac = client.get("mac")
+        self.confirm(
+            f"Block {_name(client)} ({mac})? It loses its network connection until you unblock it.",
+            lambda: self.run_call(lambda d: deco_features.block_macs(d, [mac]),
+                                  lambda _r: (self.window.toast(f"Blocked {_name(client)}."), self.refresh()), label="block"),
+            destructive_label="Block")
+
+    def _show_blocked(self):
+        self.run_call(deco_features.blocked_clients, self._blocked_dialog, label="blocked")
+
+    def _blocked_dialog(self, blocked):
+        win = Gtk.Window(title="Blocked clients", transient_for=self.window, modal=True, default_width=420)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(box, f"set_margin_{side}")(14)
+        clients = blocked.get("client_list", [])
+        if not clients:
+            box.append(Gtk.Label(label="No blocked clients.", xalign=0))
+        for b in clients:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            row.append(Gtk.Label(label=f"{b.get('name') or b.get('mac')}  ({b.get('mac')})", xalign=0, hexpand=True))
+            btn = Gtk.Button(label="Unblock")
+            btn.connect("clicked", lambda _b, m=b["mac"]: (win.close(), self.run_call(
+                lambda d: d.unblock_clients(m), lambda _r: (self.window.toast("Unblocked."), self.refresh()), label="unblock")))
+            row.append(btn)
+            box.append(row)
+        close = Gtk.Button(label="Close", halign=Gtk.Align.END)
+        close.connect("clicked", lambda _b: win.close())
+        box.append(close)
+        win.set_child(box)
+        win.present()
+
     # ---- auto-refresh ----
     def _on_auto_toggled(self, _btn):
         self._sync_timer()
@@ -97,7 +155,7 @@ class ClientsScreen(Screen):
     def _tick(self):
         # Only poll when this screen is the visible one and we're connected.
         if self.window.connected and self.get_mapped():
-            self.run_call(lambda d: d.clients(), self._populate, label="clients")
+            self.run_call(self._fetch, self._populate, label="clients")
         return True  # keep the timer alive
 
     def on_disconnected(self):

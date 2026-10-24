@@ -8,7 +8,7 @@ COPY requirements-rest.txt ./
 RUN pip install --no-cache-dir -r requirements-rest.txt
 
 # The API, the backend modules, the opcode map deco_api loads at import, and the web UI.
-COPY deco_rest.py deco_api.py deco_demo.py deco_log.py deco-opcodes.json ./
+COPY deco_rest.py deco_api.py deco_demo.py deco_features.py deco_log.py deco-opcodes.json ./
 COPY web ./web
 
 # Credentials: $TPLINK_USER + $TPLINK_PASS (env file), or a two-line file at

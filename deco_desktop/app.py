@@ -11,8 +11,12 @@ from gi.repository import GLib, Gtk, Gio  # noqa: E402
 
 from . import backend as be  # noqa: E402
 from .screens.clients import ClientsScreen  # noqa: E402
+from .screens.mesh import MeshScreen  # noqa: E402
+from .screens.overview import OverviewScreen  # noqa: E402
 from .screens.portforward import PortForwardScreen  # noqa: E402
 from .screens.reservations import ReservationsScreen  # noqa: E402
+from .screens.settings import NetworkScreen, SecurityScreen, SystemScreen  # noqa: E402
+from .screens.wifi import WifiScreen  # noqa: E402
 from .widgets import FormDialog  # noqa: E402
 
 APP_ID = "io.github.averagenative.DecoDesktop"
@@ -49,7 +53,7 @@ _STATE_TEXT = {
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Deco Desktop")
-        self.set_default_size(920, 620)
+        self.set_default_size(1100, 720)
         self.backend = be.Backend(on_state_change=self._on_state_change)
 
         # --- header ---
@@ -82,9 +86,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.screens = []
         for title, name, screen in (
+            ("Overview", "overview", OverviewScreen(self)),
             ("Clients", "clients", ClientsScreen(self)),
             ("Port Forwarding", "portforward", PortForwardScreen(self)),
             ("Reservations", "reservations", ReservationsScreen(self)),
+            ("Wi-Fi", "wifi", WifiScreen(self)),
+            ("Mesh", "mesh", MeshScreen(self)),
+            ("Network", "network", NetworkScreen(self)),
+            ("Security", "security", SecurityScreen(self)),
+            ("System", "system", SystemScreen(self)),
         ):
             self.stack.add_titled(screen, name, title)
             self.screens.append(screen)

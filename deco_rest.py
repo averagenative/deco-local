@@ -40,6 +40,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 import deco_api
 import deco_demo
+import deco_features
 import deco_log
 
 log = deco_log.get_logger("rest")
@@ -207,14 +208,6 @@ class ReservationModify(BaseModel):
     mac: str
 
 
-def _node_name(node):
-    """Display name for a mesh node: the custom nickname (base64 on the wire) or the
-    preset location key (e.g. living_room)."""
-    if node.get("nickname") == "custom" and node.get("custom_nickname"):
-        return deco_api.b64decode(node["custom_nickname"])
-    return (node.get("nickname") or node.get("device_model") or "Deco").replace("_", " ").title()
-
-
 # ---- routes ----
 @app.get("/health", tags=["meta"])
 def health():
@@ -243,10 +236,7 @@ def reset_session():
 @app.get("/devices", tags=["mesh"])
 def list_devices():
     """Mesh nodes (the Deco units), each with a decoded display `name`."""
-    nodes = session.call(lambda d: d.devices())
-    for n in nodes:
-        n["name"] = _node_name(n)
-    return nodes
+    return session.call(deco_features.devices)
 
 
 @app.get("/clients", tags=["clients"])
@@ -301,6 +291,174 @@ def modify_reservation(body: ReservationModify):
 @app.delete("/reservations/{mac}", tags=["reservations"])
 def remove_reservation(mac: str):
     return session.call(lambda d: d.remove_reservations(mac))
+
+
+# ---- second-sweep features: overview, client controls, routes, settings, Wi-Fi ----
+# The logic lives in deco_features, shared with the desktop app.
+@app.get("/overview", tags=["overview"])
+def overview():
+    """Internet, LAN and DHCP, firmware, and every node with CPU, memory, and throughput."""
+    return session.call(deco_features.overview)
+
+
+@app.get("/clients/speeds", tags=["clients"])
+def client_speeds():
+    """Live throughput per client in KB/s: {mac: {"down", "up"}}."""
+    return session.call(lambda d: {m: {"down": dn, "up": up} for m, (dn, up) in d.client_list_speeds().items()})
+
+
+class MacList(BaseModel):
+    macs: list[str] = Field(..., description="Client MACs, e.g. AA-BB-CC-DD-EE-FF.")
+
+
+@app.get("/clients/blocked", tags=["clients"])
+def blocked_clients():
+    return session.call(deco_features.blocked_clients)
+
+
+@app.post("/clients/block", tags=["clients"])
+def block_clients(body: MacList):
+    """Block clients from the network (they stay blocked until unblocked)."""
+    return session.call(lambda d: deco_features.block_macs(d, body.macs))
+
+
+@app.delete("/clients/blocked/{mac}", tags=["clients"])
+def unblock_client(mac: str):
+    return session.call(lambda d: d.unblock_clients(mac))
+
+
+class Priority(BaseModel):
+    enable: bool
+    minutes: int = Field(-1, description="How long priority lasts; -1 means always.")
+
+
+@app.post("/clients/{mac}/priority", tags=["clients"])
+def client_priority(mac: str, body: Priority):
+    """QoS priority for a client. The Deco rejects this until QoS bandwidth is set."""
+    def fn(d):
+        c = next((x for x in d.clients() if x.get("mac") == mac), None)
+        if c is None:
+            raise HTTPException(404, f"No client {mac}")
+        return d.set_client_priority(c, body.enable, body.minutes)
+    return session.call(fn)
+
+
+@app.put("/port-forwards/{pf_id}", tags=["port-forwarding"])
+def modify_port_forward(pf_id: str, body: PortForwardCreate):
+    return session.call(lambda d: d.modify_port_forward(
+        pf_id, body.external_port, body.internal_ip, body.internal_port, protocol=body.protocol, name=body.name))
+
+
+class Route(BaseModel):
+    ip: str = Field(..., description="Destination network, e.g. 10.20.0.0")
+    mask: str = Field(..., description="Netmask, e.g. 255.255.255.0")
+    gateway: str
+    interface: str = Field("lan", description="lan | wan")
+    name: str = ""
+    enable: bool = True
+
+
+@app.get("/routes", tags=["network"])
+def list_routes():
+    return session.call(deco_features.static_routes)
+
+
+@app.post("/routes", tags=["network"])
+def add_route(body: Route):
+    return session.call(lambda d: d.add_static_route(body.ip, body.mask, body.gateway, body.interface, body.name, body.enable))
+
+
+@app.put("/routes/{route_id}", tags=["network"])
+def modify_route(route_id: str, body: Route):
+    return session.call(lambda d: d.modify_static_route(
+        route_id, body.ip, body.mask, body.gateway, body.interface, body.name, body.enable))
+
+
+@app.delete("/routes/{route_id}", tags=["network"])
+def remove_route(route_id: str):
+    return session.call(lambda d: d.remove_static_routes(route_id))
+
+
+class NodeName(BaseModel):
+    name: str
+
+
+@app.post("/devices/{device_id}/name", tags=["mesh"])
+def rename_node(device_id: str, body: NodeName):
+    return session.call(lambda d: d.set_device_nickname(device_id, body.name))
+
+
+@app.get("/settings", tags=["settings"])
+def get_settings():
+    """Every safe setting, plus read-only context (time zone, DDNS, DHCP)."""
+    return session.call(deco_features.read_settings)
+
+
+@app.put("/settings/{name}", tags=["settings"])
+def put_setting(name: str, changes: dict):
+    """Change one setting. The body holds only the fields to change; the server merges them
+    into the current value and returns the result."""
+    if name not in deco_features.SETTINGS:
+        raise HTTPException(404, f"Unknown setting {name}. Known: {', '.join(deco_features.SETTINGS)}")
+    return session.call(lambda d: deco_features.write_setting(d, name, changes))
+
+
+@app.get("/security/allowed-websites", tags=["security"])
+def allowed_websites():
+    return session.call(lambda d: d.allowed_websites())
+
+
+class Website(BaseModel):
+    domain: str
+
+
+@app.post("/security/allowed-websites", tags=["security"])
+def allow_website(body: Website):
+    return session.call(lambda d: d.allow_website(body.domain))
+
+
+@app.delete("/security/allowed-websites/{domain}", tags=["security"])
+def disallow_website(domain: str):
+    return session.call(lambda d: d.disallow_website(domain))
+
+
+# ---- Phase 2: changes that drop Wi-Fi or reboot a node ----
+@app.get("/wifi", tags=["wifi"])
+def get_wifi():
+    """Main, guest, and IoT networks per band, with SSIDs and passwords decoded."""
+    return session.call(deco_features.wifi)
+
+
+class WifiChange(BaseModel):
+    network: str = Field(..., description="host (main) | guest | iot")
+    ssid: str | None = None
+    password: str | None = None
+    enable: bool | None = None
+    secured: bool | None = Field(None, description="Guest/IoT only: true = WPA2 with the password, false = open.")
+
+
+@app.put("/wifi", tags=["wifi"])
+def put_wifi(body: WifiChange):
+    """Change a network on every band at once (the Deco uses one name across bands).
+    Every Wi-Fi device reconnects, which takes 10 to 30 seconds."""
+    if body.network not in ("host", "guest", "iot"):
+        raise HTTPException(422, "network must be host, guest, or iot")
+    if body.password and len(body.password) < 8:
+        raise HTTPException(422, "Wi-Fi passwords need at least 8 characters")
+    return session.call(lambda d: deco_features.set_wifi_network(
+        d, body.network, ssid=body.ssid, password=body.password, enable=body.enable, secured=body.secured))
+
+
+@app.get("/firmware", tags=["system"])
+def firmware():
+    return session.call(deco_features.firmware)
+
+
+@app.post("/devices/{device_id}/reboot", tags=["mesh"])
+def reboot_node(device_id: str):
+    """Reboot one Deco. It drops off the mesh for 3 to 5 minutes; the main Deco takes the
+    whole network down for that long."""
+    return session.call(lambda d: d.reboot_devices(device_id))
 
 
 # ---- web UI (web/index.html + assets), when present ----

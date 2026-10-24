@@ -50,7 +50,7 @@ done < /tmp/dist-packages.txt
 tr '\n' ' ' < /tmp/dist-packages.txt; echo
 
 echo "== The app"
-cp -a deco_desktop deco_api.py deco_demo.py deco_log.py deco-opcodes.json "$APPDIR/usr/lib/deco-desktop/"
+cp -a deco_desktop deco_api.py deco_demo.py deco_features.py deco_log.py deco-opcodes.json "$APPDIR/usr/lib/deco-desktop/"
 cp packaging/install.sh "$APPDIR/usr/share/deco-desktop/install.sh"
 find "$APPDIR/usr/lib" -name __pycache__ -prune -exec rm -rf {} +
 

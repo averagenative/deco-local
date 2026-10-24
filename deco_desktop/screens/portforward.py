@@ -8,6 +8,7 @@ class PortForwardScreen(Screen):
     def __init__(self, window):
         super().__init__(window, "Port Forwarding")
         self.add_action("Add…", self._add)
+        self.add_action("Edit…", self._edit_selected)
         self.add_action("Delete", self._delete_selected)
 
         self.table = Table(columns=[
@@ -16,7 +17,7 @@ class PortForwardScreen(Screen):
             ("External", lambda r: r.get("external_port", ""), True),
             ("Internal IP", lambda r: r.get("internal_ip", ""), True),
             ("Internal Port", lambda r: r.get("internal_port", ""), True),
-        ])
+        ], on_activate=lambda _r: self._edit_selected())
         self.append(self.table.scroller)
 
     def refresh(self):
@@ -26,23 +27,31 @@ class PortForwardScreen(Screen):
         self.table.set_rows([])
 
     # ---- add ----
-    def _add(self):
+    def _add(self, rule=None):
         if not self.window.connected:
             self.window.toast("Not connected.")
             return
+        r = rule or {}
         FormDialog(
-            self.window, "Add port-forward rule",
+            self.window, "Edit port-forward rule" if rule else "Add port-forward rule",
             [
-                ("name", "Name", ""),
-                ("external_port", "External port", ""),
-                ("internal_ip", "Internal IP", ""),
-                ("internal_port", "Internal port (blank = same)", ""),
-                ("protocol", "Protocol (tcp/udp/all)", "tcp"),
+                ("name", "Name", r.get("service_name", "")),
+                ("external_port", "External port", r.get("external_port", "")),
+                ("internal_ip", "Internal IP", r.get("internal_ip", "")),
+                ("internal_port", "Internal port (blank = same)", r.get("internal_port", "")),
+                ("protocol", "Protocol", r.get("protocol", "tcp"), ["tcp", "udp", "all"]),
             ],
-            on_submit=self._do_add, submit_label="Add",
+            on_submit=lambda v: self._do_add(v, rule), submit_label="Save" if rule else "Add",
         ).present()
 
-    def _do_add(self, v):
+    def _edit_selected(self):
+        rule = self.table.selected()
+        if rule is None:
+            self.window.toast("Select a rule first.")
+            return
+        self._add(rule)
+
+    def _do_add(self, v, rule=None):
         try:
             ext = int(v["external_port"])
             internal_port = int(v["internal_port"]) if v["internal_port"] else None
@@ -56,12 +65,13 @@ class PortForwardScreen(Screen):
         if protocol not in ("tcp", "udp", "all"):
             self.window.toast("Protocol must be tcp, udp, or all.")
             return
-        self.run_call(
-            lambda d: d.add_port_forward(ext, v["internal_ip"], internal_port,
-                                         protocol=protocol, name=v["name"]),
-            lambda _r: (self.window.toast("Rule added."), self.refresh()),
-            label="add_pf",
-        )
+        if rule:
+            fn = lambda d: d.modify_port_forward(rule["port_forwarding_id"], ext, v["internal_ip"], internal_port,
+                                                 protocol=protocol, name=v["name"])
+        else:
+            fn = lambda d: d.add_port_forward(ext, v["internal_ip"], internal_port, protocol=protocol, name=v["name"])
+        self.run_call(fn, lambda _r: (self.window.toast("Rule saved." if rule else "Rule added."), self.refresh()),
+                      label="add_pf")
 
     # ---- delete ----
     def _delete_selected(self):

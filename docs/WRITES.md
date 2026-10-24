@@ -94,6 +94,44 @@ or you'll have an (inert) rule you can't remove until you enable IPv6.
 `FW_AUTO_UPDATE_SET` (`0x427F`) — the earlier "compare number with string" error was the
 GET-string / SET-int mismatch; `set_fw_auto_update()` now converts and it's verified.
 
+## Second sweep (2026-10-24)
+
+A second read sweep found 51 more working reads (see FEATURES.md). These writes back the web UI's Overview, Wi-Fi, Network, Security, and System tabs. Shapes come from the Deco app's beans, and each was verified live with a round trip that restores the original state.
+
+| method | opcode | body | verified |
+|--------|--------|------|----------|
+| `modify_port_forward(id, ...)` | `0x40B2` | PortForwardingBean plus `port_forwarding_id`; operation `edit` | add, modify (protocol, internal port, name), delete |
+| `block_clients(clients)` | `0x4017` | `{"client_list":[{mac, name (base64), client_type}]}` | blocked an offline client, then unblocked it |
+| `unblock_clients(macs)` | `0x4019` | `{"client_list":["<mac>", ...]}` | as above |
+| `set_upnp(enable)` | `0x424B` | `{enable}` | idempotent write-back |
+| `set_auto_led(**ch)` | `0x401B` | AUTO_LED_GET merged; `time_begin`/`time_end` as **ints** (the GET returns strings) | night mode flipped and restored |
+| `add_static_route(...)` | `0x4299` | RouteStaticBean `{ip, mask, gateway, interface, name (base64), enable}` | TEST-NET-3 route added, modified, removed |
+| `modify_static_route(id, ...)` | `0x4297` | RouteStaticBean plus `id` | as above |
+| `remove_static_routes(ids)` | `0x4296` | `{"route_static_id_list":["<id>", ...]}` | as above |
+| `set_client_priority(client, enable, minutes)` | `0x4013` | ClientBean `{mac, name (base64), client_type, space_id, enable_priority, time_period, remain_time}`; -1 means always | shape accepted; the device answers `-3501 bandwidth unset` until QoS bandwidth is set |
+| `set_qos_bandwidth(**ch)` | `0x421A` | BANDWIDTH_GET merged **plus `bandwidth_mode: "custom"`**: the GET omits it, and without it the Lua handler fails with `bad argument #4 to 'set'` | idempotent write-back |
+| `reboot_devices(ids)` | `0x4016` | `{"device_list":[{"device_id"}]}` | see Phase 2 below |
+
+### Phase 2: disruptive writes (verified live 2026-10-24, with someone home)
+
+`deco_disruptive_test.py --run` ran from a wired host, because Wi-Fi clients lose their connection mid-test.
+
+| test | result |
+|------|--------|
+| `ipv6` write-back | passed; unchanged |
+| `qos_bandwidth` write-back | passed once `bandwidth_mode` was added. Side effect: any BANDWIDTH_SET sets `has_set_bandwidth: true`, even when you write `false` |
+| `wireless` write-back (full object) | passed; the radios restart once (10 to 30 seconds) and the settings come back unchanged |
+| guest network on, then off (`--guest-toggle`) | passed with a **partial** write: `{"band2_4": {"guest": {"enable": true}}, "band5_1": {...}}`, which is what the app sends. A full WIRELESS_GET object with the guest network turned on fails with `attempt to compare string with number`. `write_wireless()` sends partials; the GET also returns `access_duration` as a string where the app sends an Integer |
+| satellite reboot (`--reboot-node Outside`) | passed. The Deco schedules the reboot, so the node stays up about 45 seconds; it then goes offline, briefly reconnects around 2 minutes, drops again while its backhaul settles, and is stable after about 4.5 minutes |
+
+Skipped on purpose: `ipv4` and `mac_clone` write-backs (they rewrite the WAN, including the DHCP-assigned public IP; nothing in the UIs edits them) and `operation_mode` (reboots the whole mesh).
+
+Units and encodings: per-client and per-node speeds are KB/s. QoS limits are Kbps (1 Mbps = 1024). LED, Wi-Fi schedule, reboot, and firmware windows are minutes after midnight.
+
+Not usable locally: `SPEEDTEST_START` (`0x4011`, `{"is_auto": true}`) is accepted, but no test runs. The server list is empty, and `SPEEDTEST_LATEST_GET`/`SPEEDTEST_HISTORY_GET` return protocol status 12. Speed tests appear to need TP-Link's cloud.
+
+Not exposed on purpose: firmware updates (`FW_UPDATE`). An X60 was once wedged by a failed update, no update has been available to test with, and automatic updates (`set_fw_auto_update`) cover the need.
+
 ## Logging
 All tools use `deco_log.py` (timestamped, leveled: DEBUG/INFO/WARN/ERROR/FAIL; `$DECO_LOG_LEVEL`).
 `deco_api` logs: connect (INFO), each opcode req/resp (DEBUG), writes (INFO), rejections (ERROR),

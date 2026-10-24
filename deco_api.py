@@ -463,6 +463,31 @@ class DecoLocal:
     # --- tools ---
     def speedtest_servers(self): return self.read("SPEEDTEST_SERVER_LIST_GET")
 
+    # --- more reads (second sweep, 2026-10-24) ---
+    def lan_ip(self):           return self.read("LAN_IP_GET")
+    def dhcp(self):             return self.read("DHCP_GET")
+    def client_leases(self):    return self.read("CLIENT_LEASE_GET").get("client_lease", [])
+    def device_resources(self): return self.read("DEVICE_RESOURCE_INFO_GET").get("device_list", [])
+    def fw_latest(self):        return self.read("FW_LATEST_GET").get("fw_list", [])
+    def fw_progress(self):      return self.read("FW_PROG_GET")
+    def messages(self):         return self.read("MESSAGE_LIST_GET").get("message_list", [])
+    def blocked_clients(self):  return self.read("BLOCKED_LIST_GET")
+    def auto_led(self):         return self.read("AUTO_LED_GET")
+    def upnp(self):             return self.read("UPNP_GET")
+    def ddns(self):             return self.read("DDNS_GET")
+    def static_routes(self):    return self.read("ROUTE_STATIC_LIST_GET")
+    def access_control(self):   return self.read("ACCESS_CONTROL_MODE_GET")
+    def dedicated_backhaul(self): return self.read("DEDICATED_BACKHAUL_GET")
+    def vpn_server(self):       return self.read("VPN_SERVER_INFO_GET")
+    def doh_dot(self):          return self.read("DOH_DOT_GET")
+    def allowed_websites(self): return self.read("ANTIVIRUS_ALLOWED_WEBSITES_GET")
+    def qos_bandwidth(self):    return self.read("BANDWIDTH_GET")
+
+    def client_list_speeds(self):
+        """Live per-client throughput in KB/s, keyed by MAC: {mac: (down, up)}."""
+        rows = self.read("CLIENT_LIST_SPEED_GET").get("client_list_speed", [])
+        return {r["mac"]: (r.get("down_speed", 0), r.get("up_speed", 0)) for r in rows}
+
     # ================= writes (verified) =================
     # All writes use the {"operation","params"} envelope via self.write().
 
@@ -561,9 +586,24 @@ class DecoLocal:
     # --- DISRUPTIVE setters (implemented, NOT auto-tested — see docs/WRITES.md) ---
     # These re-apply core network/radio config and can drop clients or reboot the
     # mesh. Bodies merge `changes` into the matching *_GET. Use deliberately.
+    def write_wireless(self, partial: dict):
+        """DISRUPTIVE: send only the changed Wi-Fi fields, e.g.
+        {"band2_4": {"guest": {"enable": True}}, "band5_1": {"guest": {"enable": True}}}.
+        This is how the Deco app changes networks; a full WIRELESS_GET object written back
+        with the guest network turned on fails with "attempt to compare string with number"."""
+        return self.write("WIRELESS_SET", partial, "set")
+
     def set_wireless(self, **changes):
-        "DISRUPTIVE: re-applies Wi-Fi (SSID/passphrase/channel) — clients drop briefly."
-        return self._update("WIRELESS_GET", "WIRELESS_SET", changes)
+        """DISRUPTIVE: re-applies Wi-Fi (SSID/passphrase/channel) — clients drop briefly.
+        The GET returns guest `access_duration` as a string ("-1"), but the SET compares it as
+        a number once the guest network is on, so convert it (the app sends an Integer)."""
+        cur = self.read("WIRELESS_GET")
+        cur.update(changes)
+        for band in cur.values():
+            for net in (band.values() if isinstance(band, dict) else ()):
+                if isinstance(net, dict) and isinstance(net.get("access_duration"), str):
+                    net["access_duration"] = int(net["access_duration"])
+        return self.write("WIRELESS_SET", cur, "set")
 
     def set_qos_mode(self, **changes):
         "Re-applies QoS."
@@ -624,6 +664,87 @@ class DecoLocal:
         """Remove an IPv6 firewall rule by id (requires IPv6 enabled — see add)."""
         return self.write("IPV6_FIREWALL_LIST_REMOVE",
                           {"firewall_list": [{"id": str(rule_id)}]}, "remove")
+
+    # ---- second-sweep writes (shapes from the app's beans; see docs/WRITES.md) ----
+    def modify_port_forward(self, port_forwarding_id, external_port, internal_ip, internal_port=None,
+                            protocol="tcp", name="", service_type="custom"):
+        """Change an existing port-forwarding rule in place (PortForwardingBean + id)."""
+        params = {"port_forwarding_id": str(port_forwarding_id), "external_port": str(external_port),
+                  "internal_ip": internal_ip,
+                  "internal_port": str(internal_port if internal_port is not None else external_port),
+                  "protocol": protocol, "service_type": service_type,
+                  "service_name": base64.b64encode(name.encode()).decode()}
+        return self.write("PORT_FORWARDING_MODIFY", params, "edit")
+
+    def set_client_priority(self, client: dict, enable: bool, minutes: int = -1):
+        """Give a client QoS priority (or take it away). `client` is a dict from clients()
+        (decoded name). `minutes` is how long priority lasts; -1 means always. Mirrors the
+        app's ClientBean: name (base64), mac, client_type, space_id, time_period, remain_time."""
+        period = int(minutes) if enable else -1
+        entry = {"mac": client["mac"], "name": base64.b64encode((client.get("name") or "").encode()).decode(),
+                 "client_type": client.get("client_type", "other"), "space_id": client.get("space_id"),
+                 "enable_priority": bool(enable), "time_period": period, "remain_time": period}
+        return self.write("CLIENT_LIST_SET", {"client_list": [entry]}, "set")
+
+    def block_clients(self, clients):
+        """Block clients from the network. `clients` is a list of dicts with `mac` and,
+        optionally, `name` (plain text) and `client_type` (as CLIENT_LIST_GET reports them)."""
+        entries = [{"mac": c["mac"], "name": base64.b64encode(c.get("name", "").encode()).decode(),
+                    "client_type": c.get("client_type", "other")} for c in clients]
+        return self.write("CLIENT_LIST_BLOCK", {"client_list": entries}, "block")
+
+    def unblock_clients(self, macs):
+        """Unblock clients by MAC (str or list)."""
+        if isinstance(macs, str):
+            macs = [macs]
+        return self.write("BLOCKED_LIST_UNBLOCK", {"client_list": list(macs)}, "unblock")
+
+    def set_upnp(self, enable: bool):
+        return self.write("UPNP_SET", {"enable": bool(enable)}, "set")
+
+    def set_auto_led(self, **changes):
+        """LEDs: enable (on/off), enable_night_mode, time_begin/time_end (minutes after
+        midnight). GET returns the times as strings; SET wants ints, so convert."""
+        cur = self.read("AUTO_LED_GET")
+        cur.update(changes)
+        for k in ("time_begin", "time_end"):
+            if k in cur and cur[k] not in (None, ""):
+                cur[k] = int(cur[k])
+        return self.write("AUTO_LED_SET", cur, "set")
+
+    def add_static_route(self, ip, mask, gateway, interface="lan", name="", enable=True):
+        """Add a static route (RouteStaticBean). `name` is plain text."""
+        route = {"ip": ip, "mask": mask, "gateway": gateway, "interface": interface,
+                 "name": base64.b64encode(name.encode()).decode(), "enable": bool(enable)}
+        return self.write("ROUTE_STATIC_ADD", route, "add")
+
+    def modify_static_route(self, route_id, ip, mask, gateway, interface="lan", name="", enable=True):
+        route = {"id": str(route_id), "ip": ip, "mask": mask, "gateway": gateway, "interface": interface,
+                 "name": base64.b64encode(name.encode()).decode(), "enable": bool(enable)}
+        return self.write("ROUTE_STATIC_MODIFY", route, "edit")
+
+    def remove_static_routes(self, route_ids):
+        if isinstance(route_ids, str):
+            route_ids = [route_ids]
+        return self.write("ROUTE_STATIC_REMOVE", {"route_static_id_list": [str(i) for i in route_ids]}, "remove")
+
+    def start_speedtest(self):
+        """Start a speed test on the Deco (automatic server). Poll speedtest_result()."""
+        return self.write("SPEEDTEST_START", {"is_auto": True}, "set")
+
+    def set_qos_bandwidth(self, **changes):
+        """QoS: enable, downstream_bandwidth, upstream_bandwidth (Kbps; 1 Mbps = 1024). Client
+        priority only works once has_set_bandwidth is true. Re-applies QoS (a brief blip)."""
+        # The GET omits bandwidth_mode, but the SET requires it ("custom" or "speedtest").
+        return self._update("BANDWIDTH_GET", "BANDWIDTH_SET", {"bandwidth_mode": "custom", **changes})
+
+    # ---- disruptive (Phase 2): reboots ----
+    def reboot_devices(self, device_ids):
+        """Reboot Deco node(s) by device_id. The node drops off the mesh for 3-5 minutes;
+        rebooting the main Deco takes the whole network down for that long."""
+        if isinstance(device_ids, str):
+            device_ids = [device_ids]
+        return self.write("DEVICE_LIST_REBOOT", {"device_list": [{"device_id": i} for i in device_ids]}, "reboot")
 
 
 def _main(argv):

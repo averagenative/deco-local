@@ -18,7 +18,7 @@ mkdir -p dist
 # does not own, and keeps the context small).
 SRC="$(mktemp -d)"
 trap 'rm -rf "$SRC"' EXIT
-cp -a deco_desktop deco_api.py deco_demo.py deco_log.py deco-opcodes.json data packaging "$SRC/"
+cp -a deco_desktop deco_api.py deco_demo.py deco_features.py deco_log.py deco-opcodes.json data packaging "$SRC/"
 find "$SRC" -name __pycache__ -prune -exec rm -rf {} +
 "$ENGINE" run --rm -v "$SRC:/src:ro,z" -v "$PWD/dist:/out:z" "$IMAGE:$STAMP" bash /src/packaging/appimage/build-appdir.sh
 VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' deco_desktop/__init__.py)"

@@ -239,6 +239,7 @@
     table.data tbody tr:hover { background: var(--accent-dim); }
     table.data tr.off td:not(.actions) { opacity: 0.55; }
     td.actions { text-align: right; white-space: nowrap; }
+    table.data .mono { white-space: nowrap; }
     td.actions button + button { margin-left: 6px; }
     .name { color: var(--strong); font-weight: 500; overflow-wrap: anywhere; }
     .sub { display: block; font-size: 0.78rem; color: var(--muted); }
@@ -261,6 +262,36 @@
     .card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 12px 0 0; font-size: 0.85rem; }
     .card dt { color: var(--muted); }
     .card dd { margin: 0; overflow-wrap: anywhere; }
+
+    /* settings cards, overview, switches */
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+    .card .desc { margin: 4px 0 10px; font-size: 0.82rem; color: var(--muted); }
+    .card .desc.err { color: var(--bad); }
+    .card .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.9rem; }
+    .card .row input:not([type="checkbox"]), .card .row select { width: 170px; max-width: 60%; }
+    .card .actions-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .card table.data { margin-top: 6px; }
+    .switch { position: relative; width: 40px; height: 22px; flex: none; display: inline-block; }
+    .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+    .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--input); border: 1px solid var(--border); transition: background 0.15s, border-color 0.15s; }
+    .switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+    .switch input:checked + span { background: var(--accent-dim); border-color: var(--accent-border); }
+    .switch input:checked + span::after { transform: translateX(18px); background: var(--accent); }
+    .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 0.86rem; margin: 8px 0 0; }
+    .kv dt { color: var(--muted); }
+    .kv dd { margin: 0; overflow-wrap: anywhere; }
+    .section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 24px 0 10px; font-weight: 500; }
+    .section-title:first-child { margin-top: 0; }
+    .meter { height: 6px; border-radius: 3px; background: var(--input); overflow: hidden; margin-top: 3px; min-width: 60px; }
+    .meter i { display: block; height: 100%; background: var(--accent); }
+    .warn-note { border: 1px solid var(--warn); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 0.85rem; margin: 0 0 14px; }
+    .inline-list { list-style: none; margin: 8px 0 0; padding: 0; }
+    .inline-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.88rem; }
+    .inline-list li:first-child { border-top: 0; }
+    .pw-row { display: flex; gap: 6px; width: 60%; justify-content: flex-end; }
+    .pw-row input { width: 100% !important; max-width: none !important; }
+    .card .row .pw-row input { width: auto; }
 
     /* dialog */
     dialog {
@@ -328,14 +359,25 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="clients" aria-selected="true">Clients<span class="count" id="n-clients"></span></button>
+      <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+      <button role="tab" data-tab="clients" aria-selected="false">Clients<span class="count" id="n-clients"></span></button>
       <button role="tab" data-tab="pf" aria-selected="false">Port forwarding<span class="count" id="n-pf"></span></button>
       <button role="tab" data-tab="res" aria-selected="false">Reservations<span class="count" id="n-res"></span></button>
+      <button role="tab" data-tab="wifi" aria-selected="false">Wi-Fi</button>
       <button role="tab" data-tab="mesh" aria-selected="false">Mesh<span class="count" id="n-mesh"></span></button>
+      <button role="tab" data-tab="network" aria-selected="false">Network</button>
+      <button role="tab" data-tab="security" aria-selected="false">Security</button>
+      <button role="tab" data-tab="system" aria-selected="false">System</button>
     </nav>
 
     <main>
-      <section class="panel" id="tab-clients" role="tabpanel">
+      <section class="panel" id="tab-overview" role="tabpanel">
+        <div class="bar"></div>
+        <div class="toolbar"><span class="spacer"></span><button class="sm" data-refresh="overview">Refresh</button></div>
+        <div id="overview-body"></div>
+      </section>
+
+      <section class="panel" id="tab-clients" role="tabpanel" hidden>
         <div class="bar"></div>
         <div class="toolbar">
           <input id="clientSearch" type="search" placeholder="Filter clients" autocomplete="off" spellcheck="false">
@@ -348,13 +390,13 @@
           <table class="data" data-table="clients">
             <thead><tr>
               <th data-sort="name">Name</th><th data-sort="ip">IP</th><th data-sort="mac">MAC</th>
-              <th data-sort="client_type">Type</th><th data-sort="wire_type">Link</th><th data-sort="interface">Network</th>
-              <th data-sort="online">Status</th><th></th>
+              <th data-sort="client_type">Type</th><th data-sort="online">Status</th><th data-sort="down">Traffic</th><th></th>
             </tr></thead>
             <tbody></tbody>
           </table>
         </div>
         <p class="empty" id="clients-empty">Loading clients...</p>
+        <div id="blocked-body"></div>
       </section>
 
       <section class="panel" id="tab-pf" role="tabpanel" hidden>
@@ -404,6 +446,32 @@
         </div>
         <div class="cards" id="mesh-cards"></div>
         <p class="empty" id="mesh-empty">Loading mesh...</p>
+        <div id="mesh-extra"></div>
+      </section>
+
+      <section class="panel" id="tab-wifi" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar"><span class="spacer"></span><button class="sm" data-refresh="wifi">Refresh</button></div>
+        <p class="warn-note">Saving a change on this tab restarts the Wi-Fi radios. Every Wi-Fi device disconnects for 10 to 30 seconds and then reconnects on its own. If you change the main network's name or password, you have to reconnect each device by hand.</p>
+        <div id="wifi-body"></div>
+      </section>
+
+      <section class="panel" id="tab-network" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar"><span class="spacer"></span><button class="sm" data-refresh="network">Refresh</button></div>
+        <div id="network-body"></div>
+      </section>
+
+      <section class="panel" id="tab-security" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar"><span class="spacer"></span><button class="sm" data-refresh="security">Refresh</button></div>
+        <div id="security-body"></div>
+      </section>
+
+      <section class="panel" id="tab-system" role="tabpanel" hidden>
+        <div class="bar"></div>
+        <div class="toolbar"><span class="spacer"></span><button class="sm" data-refresh="system">Refresh</button></div>
+        <div id="system-body"></div>
       </section>
     </main>
 
@@ -440,7 +508,7 @@
     return n;
   }
   const td = (label, ...kids) => {
-    kids = kids.filter(k => k != null && k !== false);
+    kids = kids.flat().filter(k => k != null && k !== false);
     return el('td', { 'data-label': label }, kids.length > 1 ? el('div', {}, ...kids) : kids);
   };
   const human = s => String(s || '').replace(/_/g, ' ');
@@ -488,22 +556,30 @@
   }
 
   /* ---------- state ---------- */
-  const SRC = { clients: 'clients', pf: 'port-forwards', res: 'reservations', mesh: 'devices' };
+  const SRC = {
+    overview: 'overview', clients: 'clients', speeds: 'clients/speeds', blocked: 'clients/blocked',
+    pf: 'port-forwards', res: 'reservations', mesh: 'devices', wifi: 'wifi', settings: 'settings',
+    routes: 'routes', websites: 'security/allowed-websites', firmware: 'firmware',
+  };
   const S = {
-    data: { clients: null, pf: null, res: null, mesh: null },
+    data: Object.fromEntries(Object.keys(SRC).map(k => [k, null])),
     err: {},
     loaded: {},
     inflight: {},
     busy: 0,
     status: null,
-    tab: 'clients',
+    tab: 'overview',
     sort: {
       clients: { key: 'online', dir: -1 },
       pf: { key: 'external_port', dir: 1 },
       res: { key: 'ip', dir: 1 },
     },
   };
-  const DEPS = { clients: ['clients', 'res'], pf: ['pf', 'clients'], res: ['res', 'clients'], mesh: ['mesh'] };
+  const DEPS = {
+    overview: ['overview'], clients: ['clients', 'res', 'speeds', 'blocked'], pf: ['pf', 'clients'],
+    res: ['res', 'clients'], wifi: ['wifi'], mesh: ['mesh', 'settings'], network: ['settings', 'routes'],
+    security: ['settings', 'websites'], system: ['settings', 'firmware'],
+  };
 
   const clientByMac = mac => (S.data.clients || []).find(c => normMac(c.mac) === normMac(mac));
   const clientByIp = ip => (S.data.clients || []).find(c => c.ip === ip && c.online) ||
@@ -525,7 +601,6 @@
     if (S.inflight[name]) return S.inflight[name];
     const p = (async () => {
       S.busy++;
-      $(`#tab-${name}`).classList.add('loading');
       paintStatus();
       try {
         S.data[name] = await api(SRC[name]);
@@ -536,19 +611,26 @@
         if (!quiet) toast(e.message, 'bad');
       } finally {
         S.busy--;
-        $(`#tab-${name}`).classList.remove('loading');
         delete S.inflight[name];
-        renderAll();
+        paintLoading();
+        renderFor(name);
         refreshStatus();
       }
     })();
     S.inflight[name] = p;
+    paintLoading();
     return p;
+  }
+  function paintLoading() {
+    for (const [tab, deps] of Object.entries(DEPS)) {
+      const panel = $(`#tab-${tab}`);
+      if (panel) panel.classList.toggle('loading', deps.some(n => S.inflight[n]));
+    }
   }
   function ensure(tab, force) {
     for (const name of DEPS[tab]) {
       const stale = !S.loaded[name] || Date.now() - S.loaded[name] > 60000;
-      if (force ? name === tab || !S.loaded[name] : stale) load(name, { quiet: name !== tab });
+      if (force || stale) load(name, { quiet: name !== DEPS[tab][0] });
     }
   }
 
@@ -577,7 +659,11 @@
   }
 
   function renderClients() {
-    const all = S.data.clients || [];
+    const speeds = S.data.speeds || {};
+    const all = (S.data.clients || []).map(c => {
+      const sp = speeds[c.mac];
+      return { ...c, down: c.online && sp ? sp.down : -1, up: c.online && sp ? sp.up : -1 };
+    });
     const q = $('#clientSearch').value.trim().toLowerCase();
     const onlineOnly = $('#onlineOnly').checked;
     const reserved = new Map((S.data.res || []).map(r => [normMac(r.mac), r.ip]));
@@ -593,13 +679,15 @@
         td('IP', el('span', { class: 'mono', text: c.ip || '-' }),
            resIp ? el('span', { class: 'tag accent', text: 'reserved', title: `Reserved: ${resIp}` }) : null),
         td('MAC', el('span', { class: 'mono', text: c.mac })),
-        td('Type', human(c.custom_client_type && c.has_set_client_type ? c.custom_client_type : c.client_type)),
-        td('Link', human(c.wire_type)),
-        td('Network', human(c.interface)),
+        td('Type', el('span', { text: human(c.custom_client_type && c.has_set_client_type ? c.custom_client_type : c.client_type) }),
+           el('span', { class: 'sub', text: [human(c.wire_type), c.interface && c.interface !== 'main' ? `${human(c.interface)} network` : null].filter(Boolean).join(', ') })),
         td('Status', el('span', { class: c.online ? 'state on' : 'state', text: c.online ? 'online' : 'offline' })),
+        td('Traffic', c.online ? [el('span', { class: 'mono', text: `${fmtSpeed(c.down)} down` }), el('span', { class: 'sub mono', text: `${fmtSpeed(c.up)} up` })]
+                               : el('span', { class: 'muted', text: '-' })),
         el('td', { class: 'actions' },
           el('button', { class: 'sm', text: 'Rename', onclick: () => renameClient(c) }),
-          resIp ? null : el('button', { class: 'sm', text: 'Reserve IP', onclick: () => addRes({ mac: c.mac, ip: c.ip }) }))
+          resIp ? null : el('button', { class: 'sm', text: 'Reserve IP', onclick: () => addRes({ mac: c.mac, ip: c.ip }) }),
+          el('button', { class: 'sm link-danger', text: 'Block', onclick: () => blockClient(c) }))
       );
     }));
     const on = all.filter(c => c.online).length;
@@ -611,6 +699,18 @@
     $('#clientIps').replaceChildren(...all.filter(c => c.online && c.ip)
       .sort((a, b) => ipNum(a.ip) - ipNum(b.ip))
       .map(c => el('option', { value: c.ip, label: c.name || c.mac })));
+
+    const blocked = (S.data.blocked && S.data.blocked.client_list) || [];
+    $('#blocked-body').replaceChildren(...(blocked.length ? [
+      el('p', { class: 'section-title', text: `Blocked (${blocked.length})` }),
+      el('div', { class: 'table-wrap' }, el('table', { class: 'data' },
+        el('thead', {}, el('tr', {}, el('th', { text: 'Name' }), el('th', { text: 'MAC' }), el('th', { text: 'Type' }), el('th'))),
+        el('tbody', {}, blocked.map(b => el('tr', {},
+          td('Name', el('span', { class: 'name', text: b.name || b.mac })),
+          td('MAC', el('span', { class: 'mono', text: b.mac })),
+          td('Type', human(b.client_type)),
+          el('td', { class: 'actions' }, el('button', { class: 'sm', text: 'Unblock', onclick: () => unblockClient(b) }))))))),
+    ] : []));
   }
 
   function renderPf() {
@@ -627,6 +727,7 @@
       td('Client', r.target ? el('span', { class: r.targetOnline ? 'state on' : 'state', text: r.target })
                             : el('span', { class: 'muted', text: 'unknown host' })),
       el('td', { class: 'actions' },
+        el('button', { class: 'sm', text: 'Edit', onclick: () => addPf(r) }),
         el('button', { class: 'sm link-danger', text: 'Delete', onclick: () => deletePf(r) }))
     )));
     $('#n-pf').textContent = S.data.pf ? rules.length : '';
@@ -681,14 +782,293 @@
           el('dt', { text: 'Backhaul' }), el('dd', { text: backhaul(n) }),
           n.role !== 'master' && up && (sig.band5 || sig.band2_4) ? [
             el('dt', { text: 'Signal' }), el('dd', { text: `5 GHz ${sig.band5 ?? '-'}, 2.4 GHz ${sig.band2_4 ?? '-'}` })] : null,
-          el('dt', { text: 'Firmware' }), el('dd', { text: n.software_ver ? n.software_ver.split(' Rel')[0] : '-' }))
+          el('dt', { text: 'Firmware' }), el('dd', { text: n.software_ver ? n.software_ver.split(' Rel')[0] : '-' })),
+        el('div', { class: 'actions-row' },
+          el('button', { class: 'sm', text: 'Rename', onclick: () => renameNode(n) }),
+          up ? el('button', { class: 'sm link-danger', text: 'Reboot', onclick: () => rebootNode(n) }) : null)
       );
     }));
     $('#n-mesh').textContent = S.data.mesh ? nodes.length : '';
     setEmpty('mesh', nodes.length, 'No mesh nodes reported.');
+    $('#mesh-extra').replaceChildren(el('p', { class: 'section-title', text: 'Lights' }), el('div', { class: 'grid2' },
+      settingCard({ key: 'led', title: 'Deco LEDs', desc: 'The status lights on every Deco. Night mode turns them off between the two times.',
+        fields: [{ path: 'enable', type: 'toggle', label: 'LEDs on' }, { path: 'enable_night_mode', type: 'toggle', label: 'Night mode' },
+                 { path: 'time_begin', type: 'time', label: 'Lights off at' }, { path: 'time_end', type: 'time', label: 'Lights on at' }] })));
   }
 
-  function renderAll() { renderClients(); renderPf(); renderRes(); renderMesh(); }
+  const RENDER = () => ({ overview: renderOverview, clients: renderClients, pf: renderPf, res: renderRes, wifi: renderWifi,
+    mesh: renderMesh, network: renderNetwork, security: renderSecurity, system: renderSystem });
+  function renderFor(name) {
+    const r = RENDER();
+    for (const [tab, deps] of Object.entries(DEPS)) if (deps.includes(name)) r[tab]();
+  }
+  function renderAll() { Object.values(RENDER()).forEach(f => f()); }
+
+  /* ---------- shared pieces for the settings tabs ---------- */
+  const fmtSpeed = kb => kb == null || kb < 0 ? '-' : kb < 1000 ? `${kb} KB/s` : `${(kb / 1024).toFixed(1)} MB/s`;
+  const getPath = (o, path) => path.split('.').reduce((v, k) => (v == null ? v : v[k]), o);
+  const minToHHMM = m => { const n = Number(m) || 0; return `${String(Math.floor(n / 60) % 24).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; };
+  const hhmmToMin = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const fieldValue = (f, input) => f.type === 'toggle' ? input.checked : f.type === 'time' ? hhmmToMin(input.value)
+    : f.type === 'mbps' ? Math.round(Number(input.value) * 1024) : input.value;
+  const fieldNorm = (f, v) => f.type === 'toggle' ? !!v : f.type === 'time' ? Number(v) || 0
+    : f.type === 'mbps' ? Math.round((Number(v) || 0) / 1024) * 1024 : String(v ?? '');
+  const kv = pairs => el('dl', { class: 'kv' }, pairs.filter(Boolean).flatMap(([k, v, mono]) =>
+    [el('dt', { text: k }), el('dd', { class: mono ? 'mono' : null, text: v == null || v === '' ? '-' : String(v) })]));
+  const panelMessage = (name, text) => el('p', { class: S.err[name] ? 'empty err' : 'empty', text: S.err[name] || text });
+
+  function settingCard({ key, title, desc, fields, note, validate }) {
+    const card = el('div', { class: 'card' }, el('h3', { text: title }), desc ? el('p', { class: 'desc', text: desc }) : null);
+    const cur = S.data.settings && S.data.settings[key];
+    if (!cur || cur._error) {
+      card.append(el('p', { class: cur && cur._error ? 'desc err' : 'desc', text: (cur && cur._error) || S.err.settings || 'Loading...' }));
+      return card;
+    }
+    const inputs = [];
+    for (const f of fields) {
+      const v = getPath(cur, f.path);
+      let input;
+      if (f.type === 'toggle') { input = el('input', { type: 'checkbox', 'aria-label': f.label }); input.checked = !!v; }
+      else if (f.type === 'time') input = el('input', { type: 'time', value: minToHHMM(v), 'aria-label': f.label });
+      else if (f.type === 'mbps') input = el('input', { type: 'text', inputmode: 'decimal', value: String(Math.round((Number(v) || 0) / 1024)), 'aria-label': f.label });
+      else input = el('select', { 'aria-label': f.label }, f.options.map(o => el('option', { value: o.value, text: o.label, selected: String(v) === String(o.value) })));
+      inputs.push({ f, input, v });
+      card.append(el('div', { class: 'row' }, el('span', { text: f.label }),
+        f.type === 'toggle' ? el('label', { class: 'switch' }, input, el('span')) : input));
+    }
+    if (note) card.append(el('p', { class: 'desc', text: note }));
+    const save = el('button', { class: 'primary sm', text: 'Save', disabled: true });
+    const dirty = () => inputs.some(({ f, input, v }) => fieldValue(f, input) !== fieldNorm(f, v));
+    for (const { input } of inputs) for (const ev of ['input', 'change']) input.addEventListener(ev, () => { save.disabled = !dirty(); });
+    save.addEventListener('click', async () => {
+      const changes = {};
+      for (const { f, input, v } of inputs) {
+        const nv = fieldValue(f, input);
+        if (nv === fieldNorm(f, v)) continue;
+        const [top, sub] = f.path.split('.');
+        if (!sub) changes[top] = nv;
+        else { changes[top] = changes[top] || structuredClone(cur[top]); changes[top][sub] = nv; }
+      }
+      const problem = validate && validate({ ...cur, ...changes });
+      if (problem) { toast(problem, 'bad'); return; }
+      save.disabled = true;
+      save.classList.add('busy');
+      try {
+        S.data.settings[key] = await api(`settings/${key}`, { method: 'PUT', body: changes });
+        toast(`Saved: ${title}.`, 'ok');
+      } catch (e) { toast(e.message, 'bad'); }
+      finally { save.classList.remove('busy'); renderFor('settings'); }
+    });
+    card.append(el('div', { class: 'actions-row' }, save));
+    return card;
+  }
+
+  /* ---------- overview ---------- */
+  function renderOverview() {
+    const body = $('#overview-body');
+    const o = S.data.overview;
+    if (!o) { body.replaceChildren(panelMessage('overview', 'Talking to the Deco. The overview takes a few seconds.')); return; }
+    const wan = (o.wan && o.wan.ip_info) || {};
+    const lan = o.lan || {};
+    const dhcp = o.dhcp || {};
+    const nodes = [...(o.nodes || [])].sort((a, b) =>
+      (a.role === 'master' ? -1 : 0) - (b.role === 'master' ? -1 : 0) ||
+      (a.group_status === 'connected' ? -1 : 0) - (b.group_status === 'connected' ? -1 : 0) ||
+      String(a.name).localeCompare(String(b.name)));
+    const main = nodes.find(n => n.role === 'master') || {};
+    const online = main.inet_status === 'online';
+    const meter = pct => pct == null ? '-' : el('div', {}, `${pct}%`, el('div', { class: 'meter' }, el('i', { style: `width:${Math.min(100, pct)}%` })));
+    const msgText = m => m.type === 'new_report_weekly' ? `Weekly report ready (${(m.content && m.content.date_range || '').replace('-', ' to ')})`
+      : m.type === 'new_report_v2' ? `Monthly report ready (${m.content ? `${m.content.year}-${String(m.content.month).padStart(2, '0')}` : ''})`
+      : human(m.type);
+    body.replaceChildren(
+      el('div', { class: 'grid2' },
+        el('div', { class: 'card' }, el('h3', { text: 'Internet' }),
+          el('span', { class: online ? 'state on' : 'state down', text: online ? 'online' : (main.inet_status || 'unknown') }),
+          kv([['Public IP', (lan.wan_ip || [])[0] || wan.ip, true], ['Connection', human(o.wan && o.wan.dial_type)],
+              ['Gateway', wan.gateway, true], ['DNS', (lan.dns_server_ip || []).join(', '), true]])),
+        el('div', { class: 'card' }, el('h3', { text: 'Home network' }),
+          kv([['Deco address', lan.lan_ip ? `${lan.lan_ip.ip} / ${lan.lan_ip.mask}` : null, true],
+              ['DHCP range', dhcp.start_ip ? `${dhcp.start_ip} to ${dhcp.end_ip}` : null, true],
+              ['Addresses in use', dhcp.ip_amount_in_use], ['DNS handed out', [dhcp.dns1, dhcp.dns2].filter(Boolean).join(', '), true]])),
+        el('div', { class: 'card' }, el('h3', { text: 'Firmware' }),
+          kv((o.firmware || []).map(f => [f.model || f.name, `${(f.version || '?').split(' Rel')[0]}${f.need_to_upgrade ? ', update available' : ', up to date'}`])))),
+      el('p', { class: 'section-title', text: 'Decos' }),
+      el('div', { class: 'table-wrap' }, el('table', { class: 'data' },
+        el('thead', {}, el('tr', {}, ['Name', 'Status', 'CPU', 'Memory', 'Down', 'Up'].map(h => el('th', { text: h })))),
+        el('tbody', {}, nodes.map(n => {
+          const up = n.group_status === 'connected';
+          const mem = n.memory_total ? Math.round(100 * n.memory_usage / n.memory_total) : null;
+          return el('tr', { class: up ? null : 'off' },
+            td('Name', el('span', { class: 'name', text: n.name }), el('span', { class: 'sub', text: `${n.device_model || ''}${n.role === 'master' ? ', main' : ''}` })),
+            td('Status', el('span', { class: up ? 'state on' : 'state down', text: up ? 'online' : 'offline' })),
+            td('CPU', up ? meter(n.cpu_usage) : '-'), td('Memory', up ? meter(mem) : '-'),
+            td('Down', el('span', { class: 'mono', text: up ? fmtSpeed(n.down_speed) : '-' })),
+            td('Up', el('span', { class: 'mono', text: up ? fmtSpeed(n.up_speed) : '-' })));
+        })))),
+      el('p', { class: 'section-title', text: 'Messages' }),
+      (o.messages || []).length
+        ? el('div', { class: 'card' }, el('ul', { class: 'inline-list' }, [...o.messages].sort((a, b) => b.timestamp - a.timestamp).map(m =>
+            el('li', {}, el('span', { text: msgText(m) }), el('span', { class: 'muted small', text: new Date(m.timestamp * 1000).toLocaleDateString() })))))
+        : el('p', { class: 'muted small', text: 'No messages.' }));
+  }
+
+  /* ---------- Wi-Fi ---------- */
+  function renderWifi() {
+    const body = $('#wifi-body');
+    const w = S.data.wifi;
+    if (!w) { body.replaceChildren(panelMessage('wifi', 'Loading Wi-Fi settings...')); return; }
+    const bands = Object.entries(w).filter(([, b]) => b && typeof b === 'object' && b.radio);
+    const first = net => { const hit = bands.find(([, b]) => b[net]); return hit ? hit[1][net] : null; };
+    const bandName = k => k === 'band2_4' ? '2.4 GHz' : k === 'band5_1' ? '5 GHz' : k === 'band5_2' ? '5 GHz (second)' : k === 'band6' ? '6 GHz' : human(k);
+    const card = (net, title, desc, optional) => {
+      const cur = first(net);
+      if (!cur) return null;
+      const ssid = el('input', { type: 'text', value: cur.ssid || '', 'aria-label': `${title} name`, autocomplete: 'off', spellcheck: 'false' });
+      const pw = el('input', { type: 'password', value: cur.password || '', 'aria-label': `${title} password`, autocomplete: 'new-password' });
+      const show = el('button', { class: 'sm', type: 'button', text: 'Show' });
+      show.addEventListener('click', () => { const hidden = pw.type === 'password'; pw.type = hidden ? 'text' : 'password'; show.textContent = hidden ? 'Hide' : 'Show'; });
+      const en = optional ? el('input', { type: 'checkbox', 'aria-label': `${title} on` }) : null;
+      if (en) en.checked = !!cur.enable;
+      const sec = optional ? el('input', { type: 'checkbox', 'aria-label': `${title} password protected` }) : null;
+      if (sec) sec.checked = cur.encryption_mode !== 'none';
+      const save = el('button', { class: 'primary sm', text: 'Save', disabled: true });
+      const dirty = () => ssid.value !== (cur.ssid || '') || pw.value !== (cur.password || '') ||
+        (en && en.checked !== !!cur.enable) || (sec && sec.checked !== (cur.encryption_mode !== 'none'));
+      for (const i of [ssid, pw, en, sec].filter(Boolean)) for (const ev of ['input', 'change']) i.addEventListener(ev, () => { save.disabled = !dirty(); });
+      save.addEventListener('click', () => {
+        const change = { network: net };
+        if (ssid.value.trim() !== (cur.ssid || '')) change.ssid = ssid.value.trim();
+        if (pw.value !== (cur.password || '')) change.password = pw.value;
+        if (en && en.checked !== !!cur.enable) change.enable = en.checked;
+        if (sec && sec.checked !== (cur.encryption_mode !== 'none')) change.secured = sec.checked;
+        if (change.ssid === '') { toast('The network name cannot be empty.', 'bad'); return; }
+        const needsPw = net === 'host' || (sec ? sec.checked : true);
+        if (needsPw && (change.password !== undefined || change.secured) && pw.value.length < 8) {
+          toast('Wi-Fi passwords need at least 8 characters.', 'bad'); return;
+        }
+        if (change.secured) change.password = pw.value;
+        const renames = net === 'host' && (change.ssid !== undefined || change.password !== undefined);
+        formDialog({
+          title: `Apply ${title.toLowerCase()} changes?`,
+          note: renames
+            ? 'Every Wi-Fi device disconnects, and each one only reconnects after you enter the new name or password on it. If you are on Wi-Fi, this page loses its connection too.'
+            : 'Every Wi-Fi device disconnects for 10 to 30 seconds and then reconnects on its own. If you are on Wi-Fi, this page reconnects too.',
+          submit: 'Apply', danger: true,
+          async onSubmit() {
+            await api('wifi', { method: 'PUT', body: change });
+            toast(`${title} updated. The Wi-Fi radios are restarting.`, 'ok');
+            setTimeout(() => load('wifi', { quiet: true }), 25000);
+          },
+        });
+      });
+      return el('div', { class: 'card' }, el('h3', { text: title }), el('p', { class: 'desc', text: desc }),
+        en ? el('div', { class: 'row' }, el('span', { text: 'On' }), el('label', { class: 'switch' }, en, el('span'))) : null,
+        el('div', { class: 'row' }, el('span', { text: 'Name (SSID)' }), ssid),
+        sec ? el('div', { class: 'row' }, el('span', { text: 'Password protected' }), el('label', { class: 'switch' }, sec, el('span'))) : null,
+        el('div', { class: 'row' }, el('span', { text: 'Password' }), el('div', { class: 'pw-row' }, pw, show)),
+        el('div', { class: 'actions-row' }, save));
+    };
+    body.replaceChildren(el('div', { class: 'grid2' },
+      card('host', 'Main network', 'The network your own devices use. The Deco uses one name on every band.', false),
+      card('guest', 'Guest network', 'A separate network for visitors. Guests reach the internet but not your devices.', true),
+      card('iot', 'IoT network', 'A separate network for smart-home devices.', true),
+      el('div', { class: 'card' }, el('h3', { text: 'Radios' }),
+        kv(bands.flatMap(([k, b]) => [[`${bandName(k)} channel`, b.radio.channel === '0' || b.radio.channel === 0 ? 'auto' : b.radio.channel],
+                                       [`${bandName(k)} width`, b.radio.htmode], [`${bandName(k)} backhaul channel`, b.backhaul && b.backhaul.channel]])))));
+  }
+
+  /* ---------- network ---------- */
+  function renderNetwork() {
+    const body = $('#network-body');
+    const st = S.data.settings;
+    if (!st) { body.replaceChildren(panelMessage('settings', 'Loading network settings...')); return; }
+    const dhcp = st.dhcp || {};
+    const ddns = st.ddns || {};
+    const routes = (S.data.routes && S.data.routes.route_static_list) || [];
+    body.replaceChildren(
+      el('div', { class: 'grid2' },
+        settingCard({ key: 'upnp', title: 'UPnP', desc: 'Lets apps and game consoles open ports on their own. Turn it off to allow only the rules on the Port forwarding tab.',
+          fields: [{ path: 'enable', type: 'toggle', label: 'On' }] }),
+        settingCard({ key: 'sip_alg', title: 'SIP ALG', desc: 'Helps VoIP phones work through NAT. If calls drop or have one-way audio, try turning it off.',
+          fields: [{ path: 'enable', type: 'toggle', label: 'On' }] }),
+        settingCard({ key: 'client_isolation', title: 'Client isolation', desc: 'Keeps devices on your network from reaching each other.',
+          fields: [{ path: 'enable', type: 'toggle', label: 'On' }] }),
+        settingCard({ key: 'qos', title: 'QoS (bandwidth)', desc: 'Shares your connection fairly and lets you give clients priority. Set the speeds to about 90% of what your internet plan really delivers: too low, and QoS slows your whole connection.',
+          fields: [{ path: 'enable', type: 'toggle', label: 'On' }, { path: 'downstream_bandwidth', type: 'mbps', label: 'Download (Mbps)' },
+                   { path: 'upstream_bandwidth', type: 'mbps', label: 'Upload (Mbps)' }],
+          validate: v => v.enable && (v.downstream_bandwidth < 5 * 1024 || v.upstream_bandwidth < 1024)
+            ? 'Those speeds look too low (under 5 Mbps down or 1 Mbps up). QoS would throttle your connection to them.' : null }),
+        el('div', { class: 'card' }, el('h3', { text: 'DHCP server' }),
+          kv([['Range', dhcp.start_ip ? `${dhcp.start_ip} to ${dhcp.end_ip}` : null, true], ['Gateway', dhcp.gateway, true],
+              ['DNS', [dhcp.dns1, dhcp.dns2].filter(Boolean).join(', '), true], ['Addresses in use', dhcp.ip_amount_in_use]])),
+        el('div', { class: 'card' }, el('h3', { text: 'Dynamic DNS' }),
+          kv([['Status', ddns.ddns_enable ? 'on' : 'off'], ['Connection', ddns.ddns_info && human(ddns.ddns_info.connection_status)]]),
+          el('p', { class: 'desc', text: 'Read only here: setting up DDNS needs a TP-Link DDNS account.' }))),
+      el('div', { class: 'toolbar', style: 'margin-top:24px' },
+        el('p', { class: 'section-title', style: 'margin:0', text: `Static routes (${routes.length})` }), el('span', { class: 'spacer' }),
+        el('button', { class: 'primary sm', text: '+ Add route', onclick: () => routeDialog() })),
+      routes.length
+        ? el('div', { class: 'table-wrap' }, el('table', { class: 'data' },
+            el('thead', {}, el('tr', {}, ['Name', 'Network', 'Gateway', 'Interface', 'State', ''].map(h => el('th', { text: h })))),
+            el('tbody', {}, routes.map(r => el('tr', { class: r.enable ? null : 'off' },
+              td('Name', el('span', { class: 'name', text: r.name || '(unnamed)' })),
+              td('Network', el('span', { class: 'mono', text: `${r.ip} / ${r.mask}` })),
+              td('Gateway', el('span', { class: 'mono', text: r.gateway })),
+              td('Interface', String(r.interface || '').toUpperCase()),
+              td('State', el('span', { class: r.enable ? 'state on' : 'state', text: r.enable ? 'on' : 'off' })),
+              el('td', { class: 'actions' },
+                el('button', { class: 'sm', text: 'Edit', onclick: () => routeDialog(r) }),
+                el('button', { class: 'sm link-danger', text: 'Delete', onclick: () => deleteRoute(r) })))))))
+        : el('p', { class: 'muted small', text: 'No static routes.' }));
+  }
+
+  /* ---------- security ---------- */
+  function renderSecurity() {
+    const body = $('#security-body');
+    const sites = (S.data.websites && S.data.websites.website_list) || [];
+    body.replaceChildren(el('div', { class: 'grid2' },
+      settingCard({ key: 'homeshield', title: 'HomeShield protection', desc: 'Some protections need a HomeShield Pro subscription. Without one, the Deco rejects the change.',
+        fields: [{ path: 'web_protection', type: 'toggle', label: 'Block malicious websites' },
+                 { path: 'iot_protection', type: 'toggle', label: 'Protect IoT devices' },
+                 { path: 'intrusion_prevention', type: 'toggle', label: 'Intrusion prevention' }] }),
+      el('div', { class: 'card' }, el('h3', { text: `Allowed websites (${sites.length})` }),
+        el('p', { class: 'desc', text: 'Sites that HomeShield never blocks, even if it flags them.' }),
+        S.data.websites == null ? el('p', { class: 'desc', text: S.err.websites || 'Loading...' })
+          : sites.length ? el('ul', { class: 'inline-list' }, sites.map(d => el('li', {}, el('span', { class: 'mono', text: d }),
+              el('button', { class: 'sm link-danger', text: 'Remove', onclick: () => removeWebsite(d) }))))
+          : el('p', { class: 'muted small', text: 'None.' }),
+        el('div', { class: 'actions-row' }, el('button', { class: 'primary sm', text: '+ Add website', onclick: addWebsite }))),
+      el('div', { class: 'card' }, el('h3', { text: 'Blocked clients' }),
+        el('p', { class: 'desc', text: 'To block or unblock a device, use its Block button on the Clients tab. Blocked devices are listed below the client table.' }))));
+  }
+
+  /* ---------- system ---------- */
+  function renderSystem() {
+    const body = $('#system-body');
+    const fw = S.data.firmware;
+    const tz = S.data.settings && S.data.settings.system_time;
+    body.replaceChildren(el('div', { class: 'grid2' },
+      el('div', { class: 'card' }, el('h3', { text: 'Firmware' }),
+        fw ? kv([...(fw.firmware || []).map(f => [f.model, `${(f.version || '?').split(' Rel')[0]}${f.need_to_upgrade ? ', update available' : ', up to date'}`]),
+                 ['Update status', human(fw.progress && fw.progress.status)]])
+           : el('p', { class: 'desc', text: S.err.firmware || 'Loading...' }),
+        el('p', { class: 'desc', text: 'Updates install automatically in the window set in the next card. To update right away, use the Deco app.' })),
+      settingCard({ key: 'fw_auto_update', title: 'Automatic firmware updates', desc: 'Lets the Deco install updates overnight.',
+        fields: [{ path: 'enable_auto_update', type: 'toggle', label: 'On' }, { path: 'time_begin', type: 'time', label: 'Window opens' },
+                 { path: 'time_end', type: 'time', label: 'Window closes' }] }),
+      settingCard({ key: 'reboot_schedule', title: 'Scheduled reboot', desc: 'Restarts every Deco at a set time each day.',
+        fields: [{ path: 'enable', type: 'toggle', label: 'On' }, { path: 'setting.time', type: 'time', label: 'Reboot at' }] }),
+      settingCard({ key: 'wifi_schedule', title: 'Wi-Fi schedule', desc: 'Turns Wi-Fi off on every Deco between two times, for example overnight.',
+        fields: [{ path: 'enable', type: 'toggle', label: 'On' }, { path: 'time_begin', type: 'time', label: 'Wi-Fi off from' },
+                 { path: 'time_end', type: 'time', label: 'Back on at' }] }),
+      settingCard({ key: 'eco_mode', title: 'Eco mode', desc: 'Saves power at the cost of Wi-Fi range and speed.',
+        fields: [{ path: 'enable', type: 'toggle', label: 'On' }] }),
+      settingCard({ key: 'monthly_report', title: 'Network reports', desc: 'The weekly and monthly reports listed on the Overview tab.',
+        fields: [{ path: 'enable', type: 'toggle', label: 'On' }] }),
+      el('div', { class: 'card' }, el('h3', { text: 'Time zone' }),
+        kv([['Region', tz && tz.tz_region], ['Deco time', tz && tz.time ? new Date(tz.time * 1000).toLocaleString() : null]]))));
+  }
 
   /* ---------- dialogs ---------- */
   const dlg = $('#dlg');
@@ -756,18 +1136,21 @@
     });
   }
 
-  function addPf() {
+  function addPf(rule) {
+    const editing = !!(rule && rule.port_forwarding_id);
     formDialog({
-      title: 'Add port-forwarding rule',
-      submit: 'Add rule',
+      title: editing ? 'Edit port-forwarding rule' : 'Add port-forwarding rule',
+      submit: editing ? 'Save' : 'Add rule',
       fields: [
-        { key: 'name', label: 'Service name', placeholder: 'e.g. plex' },
-        { key: 'protocol', label: 'Protocol', type: 'select', value: 'tcp',
+        { key: 'name', label: 'Service name', placeholder: 'e.g. plex', value: editing ? rule.service_name : '' },
+        { key: 'protocol', label: 'Protocol', type: 'select', value: editing ? rule.protocol : 'tcp',
           options: [{ value: 'tcp', label: 'TCP' }, { value: 'udp', label: 'UDP' }, { value: 'all', label: 'TCP + UDP' }] },
-        { key: 'external_port', label: 'External port', inputmode: 'numeric', placeholder: '1-65535' },
-        { key: 'internal_ip', label: 'Internal IP', list: 'clientIps', inputmode: 'decimal',
+        { key: 'external_port', label: 'External port', inputmode: 'numeric', placeholder: '1-65535',
+          value: editing ? rule.external_port : '' },
+        { key: 'internal_ip', label: 'Internal IP', list: 'clientIps', inputmode: 'decimal', value: editing ? rule.internal_ip : '',
           placeholder: lanHint(), hint: 'Pick an online client or type an address.' },
-        { key: 'internal_port', label: 'Internal port', inputmode: 'numeric', placeholder: 'same as external' },
+        { key: 'internal_port', label: 'Internal port', inputmode: 'numeric', placeholder: 'same as external',
+          value: editing ? rule.internal_port : '' },
       ],
       async onSubmit(v) {
         const body = {
@@ -778,13 +1161,130 @@
         };
         if (!IP_RE.test(body.internal_ip)) throw new Error('Internal IP is not a valid IPv4 address.');
         const clash = (S.data.pf || []).find(r => Number(r.external_port) === body.external_port &&
+          (!editing || r.port_forwarding_id !== rule.port_forwarding_id) &&
           (r.protocol === 'all' || body.protocol === 'all' || r.protocol === body.protocol));
         if (clash) throw new Error(`External port ${body.external_port} is already forwarded by "${clash.service_name || clash.port_forwarding_id}".`);
-        await api('port-forwards', { method: 'POST', body });
-        toast(`Added ${v.name || 'rule'}: ${body.external_port} to ${body.internal_ip}.`, 'ok');
+        if (editing) {
+          await api(`port-forwards/${encodeURIComponent(rule.port_forwarding_id)}`, { method: 'PUT', body });
+          toast(`Saved ${v.name || 'rule'}.`, 'ok');
+        } else {
+          await api('port-forwards', { method: 'POST', body });
+          toast(`Added ${v.name || 'rule'}: ${body.external_port} to ${body.internal_ip}.`, 'ok');
+        }
         load('pf');
       },
     });
+  }
+
+  function blockClient(c) {
+    formDialog({
+      title: 'Block this client?',
+      note: `${c.name || c.mac} (${c.mac}) loses its network connection until you unblock it.`,
+      submit: 'Block', danger: true,
+      async onSubmit() {
+        await api('clients/block', { method: 'POST', body: { macs: [c.mac] } });
+        toast(`Blocked ${c.name || c.mac}.`, 'ok');
+        load('blocked'); load('clients');
+      },
+    });
+  }
+
+  async function unblockClient(b) {
+    try {
+      await api(`clients/blocked/${encodeURIComponent(b.mac)}`, { method: 'DELETE' });
+      toast(`Unblocked ${b.name || b.mac}.`, 'ok');
+    } catch (e) { toast(e.message, 'bad'); }
+    load('blocked'); load('clients', { quiet: true });
+  }
+
+  function renameNode(n) {
+    formDialog({
+      title: 'Rename this Deco',
+      note: `${n.device_model || 'Deco'} at ${n.ip || 'an unknown address'}`,
+      fields: [{ key: 'name', label: 'Name', value: n.name || '' }],
+      async onSubmit(v) {
+        if (!v.name) throw new Error('Enter a name.');
+        await api(`devices/${encodeURIComponent(n.device_id)}/name`, { method: 'POST', body: { name: v.name } });
+        toast(`Renamed to ${v.name}.`, 'ok');
+        load('mesh');
+      },
+    });
+  }
+
+  function rebootNode(n) {
+    const main = n.role === 'master';
+    formDialog({
+      title: main ? 'Reboot the main Deco?' : `Reboot ${n.name}?`,
+      note: main
+        ? 'Your whole network and the internet go down for 3 to 5 minutes. This page reconnects when the Deco is back.'
+        : `${n.name} goes offline for 3 to 5 minutes. Devices near it move to another Deco or drop until it is back.`,
+      submit: 'Reboot', danger: true,
+      async onSubmit() {
+        await api(`devices/${encodeURIComponent(n.device_id)}/reboot`, { method: 'POST' });
+        toast(`Rebooting ${n.name}. It comes back in 3 to 5 minutes.`, 'ok');
+        setTimeout(() => load('mesh', { quiet: true }), 300000);
+      },
+    });
+  }
+
+  function routeDialog(r) {
+    const editing = !!(r && r.id);
+    formDialog({
+      title: editing ? 'Edit static route' : 'Add static route',
+      submit: editing ? 'Save' : 'Add route',
+      fields: [
+        { key: 'name', label: 'Name', value: editing ? r.name : '' },
+        { key: 'ip', label: 'Destination network', value: editing ? r.ip : '', placeholder: 'e.g. 10.20.0.0', inputmode: 'decimal' },
+        { key: 'mask', label: 'Netmask', value: editing ? r.mask : '255.255.255.0', inputmode: 'decimal' },
+        { key: 'gateway', label: 'Gateway', value: editing ? r.gateway : '', placeholder: lanHint(), inputmode: 'decimal' },
+        { key: 'interface', label: 'Interface', type: 'select', value: editing ? r.interface : 'lan',
+          options: [{ value: 'lan', label: 'LAN' }, { value: 'wan', label: 'WAN' }] },
+        { key: 'enable', label: 'State', type: 'select', value: editing && !r.enable ? 'off' : 'on',
+          options: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }] },
+      ],
+      async onSubmit(v) {
+        for (const k of ['ip', 'mask', 'gateway']) if (!IP_RE.test(v[k])) throw new Error(`${k === 'ip' ? 'Destination network' : k === 'mask' ? 'Netmask' : 'Gateway'} is not a valid IPv4 address.`);
+        const body = { name: v.name, ip: v.ip, mask: v.mask, gateway: v.gateway, interface: v.interface, enable: v.enable === 'on' };
+        await api(editing ? `routes/${encodeURIComponent(r.id)}` : 'routes', { method: editing ? 'PUT' : 'POST', body });
+        toast(editing ? `Saved route ${v.name || v.ip}.` : `Added route to ${v.ip}.`, 'ok');
+        load('routes');
+      },
+    });
+  }
+
+  function deleteRoute(r) {
+    formDialog({
+      title: 'Delete this static route?',
+      note: `${r.name || '(unnamed)'}: ${r.ip} / ${r.mask} through ${r.gateway}.`,
+      submit: 'Delete', danger: true,
+      async onSubmit() {
+        await api(`routes/${encodeURIComponent(r.id)}`, { method: 'DELETE' });
+        toast('Route deleted.', 'ok');
+        load('routes');
+      },
+    });
+  }
+
+  function addWebsite() {
+    formDialog({
+      title: 'Allow a website',
+      fields: [{ key: 'domain', label: 'Domain', placeholder: 'example.com' }],
+      async onSubmit(v) {
+        const domain = v.domain.replace(/^https?:\/\//, '').replace(/\/.*$/, '').toLowerCase();
+        if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) throw new Error('Enter a domain such as example.com.');
+        await api('security/allowed-websites', { method: 'POST', body: { domain } });
+        toast(`Allowed ${domain}.`, 'ok');
+        load('websites');
+      },
+    });
+  }
+
+  async function removeWebsite(domain) {
+    try {
+      await api(`security/allowed-websites/${encodeURIComponent(domain)}`, { method: 'DELETE' });
+      toast(`Removed ${domain}.`, 'ok');
+    } catch (e) { toast(e.message, 'bad'); }
+    load('websites');
   }
 
   function deletePf(r) {
@@ -941,7 +1441,7 @@
       const table = th.closest('table').dataset.table;
       const cur = S.sort[table];
       S.sort[table] = { key: th.dataset.sort, dir: cur.key === th.dataset.sort ? -cur.dir : 1 };
-      renderAll();
+      RENDER()[table]();
     });
   }
   $('#clientSearch').addEventListener('input', renderClients);
@@ -972,6 +1472,9 @@
   setInterval(() => {
     if (document.visibilityState === 'visible' && S.tab === 'clients' && !dlg.open) load('clients', { quiet: true });
   }, 30000);
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && S.tab === 'clients' && !dlg.open) load('speeds', { quiet: true });
+  }, 10000);
   setInterval(() => { if (document.visibilityState === 'visible') refreshStatus(); }, 15000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { refreshStatus(); ensure(S.tab); }
@@ -982,7 +1485,7 @@
   paintTheme();
   refreshStatus();
   const start = location.hash.slice(1);
-  showTab(SRC[start] ? start : 'clients');
+  showTab(DEPS[start] ? start : 'overview');
   </script>
 </body>
 </html>

@@ -2,16 +2,21 @@
 
 Manage a TP-Link Deco mesh from a browser or a Linux desktop, over your own network, without the phone app or the TP-Link cloud.
 
-deco-local talks to the main Deco directly on your LAN. It focuses on the jobs that are hardest to do on a phone:
+deco-local talks to the main Deco directly on your LAN and covers what you use the Deco app for:
 
-- **Port forwarding:** list, add, and delete rules, with a picker for the internal address.
+- **Overview:** internet status and public IP, the DHCP pool, firmware, each Deco's CPU, memory, and traffic, and the Deco's report messages.
+- **Clients:** every client the mesh knows, with live traffic, search, sorting, renaming, and blocking.
+- **Port forwarding:** add, edit, and delete rules, with a picker for the internal address.
 - **Address reservations:** reserve a client's address from the client list, and edit or remove reservations.
-- **Clients:** every client the mesh knows, with search, sorting, and renaming.
-- **Mesh:** each Deco node with its backhaul, signal, and firmware.
+- **Wi-Fi:** the main, guest, and IoT networks: names, passwords, and on/off.
+- **Mesh:** each Deco with its backhaul and firmware; rename or reboot a Deco; LED and night-mode settings.
+- **Network:** UPnP, SIP ALG, client isolation, QoS bandwidth, static routes, and the DHCP and DDNS status.
+- **Security:** HomeShield protections and the allowed-websites list.
+- **System:** automatic firmware updates, scheduled reboots, the Wi-Fi schedule, eco mode, and reports.
 
 It comes in three forms that share one backend: a web UI, a REST API with Swagger docs, and a GTK 4 desktop app.
 
-![The web UI listing the clients on a Deco mesh](docs/screenshots/web-clients.png)
+![The web UI's overview of a Deco mesh: internet, home network, firmware, and each Deco's load](docs/screenshots/web-overview.png)
 
 ## Run the web UI in a container
 
@@ -62,6 +67,8 @@ To try the UI without a Deco, start the container with `DECO_DEMO=1`, for exampl
 
 The web UI has five themes: Terminal, Midnight, Amber CRT, and Dracula (dark), and Daylight (light). It also works at phone width.
 
+![The Wi-Fi tab in the Midnight theme, with the main, guest, and IoT networks](docs/screenshots/web-wifi.png)
+
 ### Reach it from other devices
 
 The web UI and the API have no login of their own, and they can change your router's port forwarding. For that reason the server listens on `127.0.0.1` only. To use it from a phone or another computer, choose one of the following:
@@ -111,7 +118,7 @@ You configure the server with these environment variables:
 
 Deco Desktop is a GTK 4 app with Clients, Port Forwarding, and Reservations screens. It ships as an AppImage that bundles Python, GTK 4, and its other libraries. It runs on Linux distributions with glibc 2.41 or later, such as Fedora 42, Ubuntu 25.04, Debian 13, and later releases.
 
-![Deco Desktop showing the client list](docs/screenshots/desktop.png)
+![Deco Desktop showing the overview: internet, home network, firmware, and each Deco's load](docs/screenshots/desktop.png)
 
 To install it, follow these steps:
 
@@ -145,16 +152,32 @@ The server documents its API with Swagger at `/docs` and publishes the schema at
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/status` | Session state. Doesn't contact the Deco. |
+| `GET` | `/overview` | Internet, LAN and DHCP, firmware, each node's CPU, memory, and traffic, and messages. |
 | `GET` | `/devices` | Mesh nodes, each with a display `name`. |
+| `POST` | `/devices/{id}/name` | Rename a Deco. Body: `{"name"}`. |
+| `POST` | `/devices/{id}/reboot` | Reboot a Deco (3 to 5 minutes offline). |
 | `GET` | `/clients` | Clients, with names decoded. |
+| `GET` | `/clients/speeds` | Live traffic per client, in KB/s. |
 | `POST` | `/clients/{mac}/name` | Rename a client. Body: `{"name"}`. |
+| `POST` | `/clients/{mac}/priority` | QoS priority. Body: `{"enable", "minutes"}`. Needs QoS bandwidth set first. |
+| `GET` | `/clients/blocked` | Blocked clients. |
+| `POST` | `/clients/block` | Block clients. Body: `{"macs": [...]}`. |
+| `DELETE` | `/clients/blocked/{mac}` | Unblock a client. |
 | `GET` | `/port-forwards` | Port-forwarding rules. |
 | `POST` | `/port-forwards` | Add a rule. Body: `{"external_port", "internal_ip", "internal_port", "protocol", "name"}`. |
+| `PUT` | `/port-forwards/{id}` | Change a rule. Same body as adding one. |
 | `DELETE` | `/port-forwards/{id}` | Delete a rule. |
 | `GET` | `/reservations` | Address reservations. |
 | `POST` | `/reservations` | Add a reservation. Body: `{"ip", "mac"}`. |
 | `PUT` | `/reservations` | Change a reservation. Body: `{"original_ip", "original_mac", "ip", "mac"}`. |
 | `DELETE` | `/reservations/{mac}` | Remove a reservation. |
+| `GET` | `/wifi` | Main, guest, and IoT networks per band, with names and passwords. |
+| `PUT` | `/wifi` | Change one network on every band. Body: `{"network": "host|guest|iot", "ssid", "password", "enable", "secured"}`. Restarts the radios. |
+| `GET` | `/settings` | UPnP, SIP ALG, client isolation, LEDs, schedules, HomeShield, QoS, and more. |
+| `PUT` | `/settings/{name}` | Change one setting. Body: only the fields to change. |
+| `GET`, `POST`, `PUT`, `DELETE` | `/routes`, `/routes/{id}` | Static routes. |
+| `GET`, `POST`, `DELETE` | `/security/allowed-websites` | Websites HomeShield never blocks. |
+| `GET` | `/firmware` | Firmware versions and update status. |
 | `POST` | `/session/release` | Release the Deco session now. |
 | `POST` | `/session/reset` | Clear a login lockout so the next request tries once more. |
 
@@ -177,6 +200,9 @@ The main Deco answers a UDP discovery broadcast, then accepts an SSH login with 
 - **One session at a time.** The Deco accepts a single local session. The web server holds it only while you use it and releases it after five idle minutes. The **Release** button frees it right away, for example so the desktop app can connect.
 - **Login lockout.** After repeated wrong passwords, the Deco refuses logins for a while. deco-local never retries a rejected login on its own. If you see a lockout, correct the password, wait a few minutes, and then click **Retry login** in the web UI or **Connect** in the desktop app.
 - **Reservations take effect on renewal.** A client keeps its current address until its DHCP lease renews. To apply a reservation right away, reconnect the client.
+- **Some changes interrupt the network.** Saving a Wi-Fi change restarts the radios, so every Wi-Fi device reconnects within 10 to 30 seconds. Rebooting a Deco takes it offline for 3 to 5 minutes; rebooting the main Deco takes the whole network down for that long.
+- **QoS and client priority.** Client priority only works after you set your internet speeds in the QoS card. Set them to about 90% of what your plan really delivers; QoS throttles your connection to whatever you enter.
+- **Not available locally:** speed tests (the Deco accepts the command but needs TP-Link's cloud to run one), immediate firmware updates (deco-local schedules automatic updates instead), and editing WAN or LAN addresses.
 - **Credentials are stored in plain text** in `deco.env` or `~/.tplink_cloud`. Keep those files readable only by you.
 - **Tested hardware.** deco-local is tested with a Deco X60 (hardware 4.0, firmware 1.7.1) and X55 satellites. Other Deco models that the Deco app manages locally probably work. If you try one, open an issue with the result.
 

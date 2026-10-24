@@ -6,9 +6,9 @@ from gi.repository import GObject, Gio, Gtk
 class FormDialog(Gtk.Window):
     """A small modal form: labeled entries + Cancel/Save.
 
-    fields: list of (key, label, default) or (key, label, default, secret); secret
-    entries mask their text. on_submit(values: dict) is called with the entry values
-    when Save is pressed; the dialog closes automatically.
+    fields: list of (key, label, default) or (key, label, default, extra), where extra is
+    True for a masked secret entry or a list of choices for a drop-down. on_submit(values:
+    dict) is called with the values when Save is pressed; the dialog closes automatically.
     """
 
     def __init__(self, parent, title, fields, on_submit, submit_label="Save", note=None):
@@ -29,12 +29,20 @@ class FormDialog(Gtk.Window):
             box.append(hint)
 
         grid = Gtk.Grid(row_spacing=8, column_spacing=10)
-        for i, (key, label, default, *secret) in enumerate(fields):
+        for i, (key, label, default, *extra) in enumerate(fields):
             lbl = Gtk.Label(label=label, xalign=0)
-            entry = Gtk.PasswordEntry(hexpand=True, show_peek_icon=True) if any(secret) else Gtk.Entry(hexpand=True)
-            entry.connect("activate", self._submit)
-            if default is not None:
-                entry.set_text(str(default))
+            kind = extra[0] if extra else None
+            if isinstance(kind, (list, tuple)):
+                entry = Gtk.DropDown.new_from_strings(list(kind))
+                entry.set_hexpand(True)
+                if default in kind:
+                    entry.set_selected(list(kind).index(default))
+                entry._choices = list(kind)
+            else:
+                entry = Gtk.PasswordEntry(hexpand=True, show_peek_icon=True) if kind is True else Gtk.Entry(hexpand=True)
+                entry.connect("activate", self._submit)
+                if default is not None:
+                    entry.set_text(str(default))
             grid.attach(lbl, 0, i, 1, 1)
             grid.attach(entry, 1, i, 1, 1)
             self._entries[key] = entry
@@ -54,7 +62,8 @@ class FormDialog(Gtk.Window):
         self.set_child(box)
 
     def _submit(self, _btn):
-        values = {k: e.get_text().strip() for k, e in self._entries.items()}
+        values = {k: (e._choices[e.get_selected()] if isinstance(e, Gtk.DropDown) else e.get_text().strip())
+                  for k, e in self._entries.items()}
         self.close()
         self._on_submit(values)
 
@@ -144,3 +153,144 @@ class Table:
         """The payload of the selected row, or None."""
         item = self.selection.get_selected_item()
         return item.data if item is not None else None
+
+
+def min_to_hhmm(m):
+    n = int(m or 0)
+    return f"{n // 60 % 24:02d}:{n % 60:02d}"
+
+
+def hhmm_to_min(text):
+    h, _, m = text.strip().partition(":")
+    hours, minutes = int(h), int(m or 0)
+    if not (0 <= hours < 24 and 0 <= minutes < 60):
+        raise ValueError(f"{text!r} is not a time (HH:MM)")
+    return hours * 60 + minutes
+
+
+def kv_grid(pairs):
+    """A two-column grid of dim keys and selectable values."""
+    grid = Gtk.Grid(row_spacing=4, column_spacing=14)
+    for i, (key, value) in enumerate(pairs):
+        k = Gtk.Label(label=key, xalign=0)
+        k.add_css_class("dim-label")
+        v = Gtk.Label(label="-" if value in (None, "") else str(value), xalign=0, selectable=True, wrap=True)
+        grid.attach(k, 0, i, 1, 1)
+        grid.attach(v, 1, i, 1, 1)
+    return grid
+
+
+def group_frame(title, desc=None):
+    """A titled frame with a vertical box inside; returns (frame, box)."""
+    frame = Gtk.Frame(label=title)
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    for side in ("top", "bottom", "start", "end"):
+        getattr(box, f"set_margin_{side}")(10)
+    if desc:
+        d = Gtk.Label(label=desc, xalign=0, wrap=True, max_width_chars=34, width_chars=34)
+        d.add_css_class("dim-label")
+        box.append(d)
+    frame.set_child(box)
+    return frame, box
+
+
+class SettingsGroup:
+    """One Deco setting as a titled group of controls with a Save button.
+
+    fields: list of (path, kind, label); kind is "toggle", "time" (minutes after midnight,
+    shown as HH:MM), or "mbps" (stored as Kbps, 1 Mbps = 1024). A dotted path such as
+    "setting.time" edits one field of a nested object. on_save(changes) receives only the
+    changed fields; call set_value() with the new value afterwards.
+    """
+
+    def __init__(self, title, desc, fields, on_save, validate=None):
+        self.frame, box = group_frame(title, desc)
+        self._fields = fields
+        self._on_save = on_save
+        self._validate = validate
+        self._controls = {}
+        self._value = None
+        for path, kind, label in fields:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            row.append(Gtk.Label(label=label, xalign=0, hexpand=True))
+            if kind == "toggle":
+                ctl = Gtk.Switch(valign=Gtk.Align.CENTER)
+            elif kind == "time":
+                ctl = Gtk.Entry(width_chars=6, max_width_chars=6, placeholder_text="HH:MM")
+            else:
+                ctl = Gtk.SpinButton.new_with_range(0, 10000, 1)
+            row.append(ctl)
+            box.append(row)
+            self._controls[path] = (kind, ctl)
+        self._error = Gtk.Label(xalign=0, wrap=True)
+        self._error.add_css_class("error")
+        self._error.set_visible(False)
+        box.append(self._error)
+        self._save = Gtk.Button(label="Save", halign=Gtk.Align.END)
+        self._save.add_css_class("suggested-action")
+        self._save.connect("clicked", self._clicked)
+        box.append(self._save)
+        self.frame.set_sensitive(False)
+
+    @staticmethod
+    def _get(obj, path):
+        for k in path.split("."):
+            obj = obj.get(k) if isinstance(obj, dict) else None
+        return obj
+
+    def set_value(self, value):
+        """Show `value` (the setting as the Deco returns it), or an error dict."""
+        self._value = value if isinstance(value, dict) else None
+        failed = not self._value or "_error" in self._value
+        self._error.set_visible(failed and bool(value))
+        if failed:
+            self._error.set_text((value or {}).get("_error", "") if isinstance(value, dict) else "")
+            self.frame.set_sensitive(bool(value))
+            self._save.set_sensitive(False)
+            return
+        for path, (kind, ctl) in self._controls.items():
+            v = self._get(self._value, path)
+            if kind == "toggle":
+                ctl.set_active(bool(v))
+            elif kind == "time":
+                ctl.set_text(min_to_hhmm(v))
+            else:
+                ctl.set_value(round((int(v or 0)) / 1024))
+        self._save.set_sensitive(True)
+        self.frame.set_sensitive(True)
+
+    def _clicked(self, _btn):
+        changes = {}
+        try:
+            for path, (kind, ctl) in self._controls.items():
+                old = self._get(self._value, path)
+                if kind == "toggle":
+                    new, same = ctl.get_active(), bool(old) == ctl.get_active()
+                elif kind == "time":
+                    new = hhmm_to_min(ctl.get_text())
+                    same = int(old or 0) == new
+                else:
+                    new = int(ctl.get_value()) * 1024
+                    same = round(int(old or 0) / 1024) * 1024 == new
+                if same:
+                    continue
+                top, _, sub = path.partition(".")
+                if sub:
+                    changes.setdefault(top, dict(self._value.get(top) or {}))[sub] = new
+                else:
+                    changes[top] = new
+        except ValueError as e:
+            self._show_error(str(e))
+            return
+        if not changes:
+            return
+        problem = self._validate({**self._value, **changes}) if self._validate else None
+        if problem:
+            self._show_error(problem)
+            return
+        self._error.set_visible(False)
+        self._on_save(changes)
+
+    def _show_error(self, text):
+        self._error.set_text(text)
+        self._error.set_visible(True)

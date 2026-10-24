@@ -33,7 +33,8 @@ docker:
 docker-build:
 	docker build -t ghcr.io/averagenative/deco-local:latest .
 
-# Build for amd64 + arm64 and push to ghcr.io (run from a clean deco-local checkout).
+# Build for amd64 + arm64 and push to ghcr.io (run from a clean, pushed deco-local checkout).
+# ARM64_HOST=<ssh host> builds arm64 natively there instead of under qemu.
 publish-image:
 	packaging/publish-image.sh
 

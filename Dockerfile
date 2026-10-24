@@ -2,6 +2,14 @@
 # The GTK desktop app needs a display and ships as an AppImage instead (packaging/).
 FROM python:3.12-slim
 
+ARG VERSION=dev
+# Links the image to its repository on GitHub Container Registry and describes it there.
+LABEL org.opencontainers.image.source="https://github.com/averagenative/deco-local" \
+      org.opencontainers.image.title="deco-local" \
+      org.opencontainers.image.description="Manage a TP-Link Deco mesh locally: web UI and REST API, no TP-Link cloud." \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}"
+
 WORKDIR /app
 
 COPY requirements-rest.txt ./

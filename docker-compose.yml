@@ -1,7 +1,10 @@
 # deco-local: web UI + REST API. Run with:
 #   cp deco.env.example deco.env && chmod 600 deco.env   # then fill in your TP-Link login
-#   docker compose up -d --build
+#   docker compose up -d                                 # pulls ghcr.io/averagenative/deco-local
 #   open http://127.0.0.1:8777/
+#
+# The image is published for linux/amd64 and linux/arm64. To build it yourself instead:
+#   docker build -t ghcr.io/averagenative/deco-local:latest .
 #
 # Host networking is REQUIRED: the Deco is found with a UDP broadcast (TDP on udp/20002),
 # which a bridged network will not deliver to the LAN. With host networking `ports:` is
@@ -12,8 +15,7 @@
 
 services:
   deco:
-    build: .
-    image: deco-local:latest
+    image: ghcr.io/averagenative/deco-local:latest
     container_name: deco
     network_mode: host
     restart: unless-stopped

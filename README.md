@@ -21,48 +21,39 @@ It comes in three forms that share one backend: a web UI, a REST API with Swagge
 
 ## Run the web UI in a container
 
-The container is the recommended way to run deco-local. It serves the web UI and the REST API on port 8777.
+The container is the recommended way to run deco-local. It serves the web UI and the REST API on port 8777. The image is published on GitHub Container Registry as `ghcr.io/averagenative/deco-local` for `linux/amd64` and `linux/arm64` (for example a Raspberry Pi 4 or 5), so there's nothing to build.
 
 Before you start, you need the following:
 
 - A Linux machine on the same LAN as your Deco. The container uses host networking because it finds the Deco with a UDP broadcast, so Docker Desktop on macOS or Windows can't reach the Deco.
-- Docker with the Compose plugin, or Podman.
+- Docker or Podman.
 - The TP-Link account that owns the Deco: the email and password you sign in to the Deco app with.
 
 To start the container, follow these steps:
 
-1. Clone the repository:
+1. Create a file named `deco.env` with your TP-Link account, readable only by you:
 
     ```sh
-    git clone https://github.com/averagenative/deco-local.git
-    cd deco-local
-    ```
-
-2. Create `deco.env` from the example and make it readable only by you:
-
-    ```sh
-    cp deco.env.example deco.env
+    printf 'TPLINK_USER=%s\nTPLINK_PASS=%s\n' 'you@example.com' 'your-tplink-password' > deco.env
     chmod 600 deco.env
     ```
 
-    Then edit `deco.env` and set `TPLINK_USER` and `TPLINK_PASS` to your TP-Link account.
-
-3. Build and start the container:
+2. Start the container:
 
     ```sh
-    docker compose up -d --build
+    docker run -d --name deco --restart unless-stopped --network host \
+      --env-file deco.env ghcr.io/averagenative/deco-local:latest
     ```
 
-    If you use Podman, run `podman compose up -d --build`, or build and run the image directly:
+    With Podman, run the same command with `podman` in place of `docker`.
 
-    ```sh
-    podman build --format docker -t deco-local .
-    podman run -d --name deco --network host --env-file deco.env deco-local
-    ```
+3. On the same machine, open `http://127.0.0.1:8777/`.
 
-4. On the same machine, open `http://127.0.0.1:8777/`.
+To update, pull the new image and recreate the container: `docker pull ghcr.io/averagenative/deco-local:latest`, then `docker rm -f deco` and run the command in step 2 again. To pin a version, use a tag such as `:1.3.0` or `:1.3` instead of `:latest`.
 
-To try the UI without a Deco, start the container with `DECO_DEMO=1`, for example `docker run --rm --network host -e DECO_DEMO=1 deco-local`. It serves an in-memory demo mesh, and changes last until the container stops.
+To use Compose instead, clone the repository, create `deco.env` there (`deco.env.example` is a template), and run `docker compose up -d`. To build the image yourself, run `docker build -t ghcr.io/averagenative/deco-local:latest .` in the clone.
+
+To try the UI without a Deco, run `docker run --rm --network host -e DECO_DEMO=1 ghcr.io/averagenative/deco-local:latest`. It serves an in-memory demo mesh, and changes last until the container stops.
 
 ![Adding a port-forwarding rule in the web UI](docs/screenshots/web-port-forwarding.png)
 
@@ -226,7 +217,7 @@ The repository contains the following:
 - `packaging/`: the AppImage build and the install script.
 - `docs/`: the protocol notes and screenshots.
 
-Run `make check` before you send a change. `make demo` starts the web UI against the demo mesh.
+Run `make check` before you send a change. `make demo` starts the web UI against the demo mesh. Maintainers publish the container with `make publish-image` (podman, `qemu-user-static`, and `gh` with the `write:packages` scope) from a clean checkout after a release.
 
 ## Legal
 

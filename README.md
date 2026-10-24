@@ -115,25 +115,26 @@ Deco Desktop is a GTK 4 app with Clients, Port Forwarding, and Reservations scre
 
 To install it, follow these steps:
 
-1. Build the AppImage. The build runs in a Debian 13 container, so you need Podman or Docker:
+1. Download `DecoDesktop-<version>-x86_64.AppImage` and its `.sha256` file from the [latest release](https://github.com/averagenative/deco-local/releases/latest), then check the download:
 
     ```sh
-    packaging/build-appimage.sh
+    sha256sum -c DecoDesktop-*-x86_64.AppImage.sha256
     ```
-
-    The result is `dist/DecoDesktop-<version>-x86_64.AppImage`.
 
 2. Install it:
 
     ```sh
-    packaging/install.sh
+    chmod +x DecoDesktop-*-x86_64.AppImage
+    ./DecoDesktop-*-x86_64.AppImage --install
     ```
 
-    The script copies the AppImage to `~/Applications/DecoDesktop-x86_64.AppImage` and adds a **Deco Desktop** entry with its icon to your app menu. Running the AppImage with `--install` does the same.
+    This copies the AppImage to `~/Applications/DecoDesktop-x86_64.AppImage` and adds a **Deco Desktop** entry with its icon to your app menu.
 
 3. Open **Deco Desktop** from your app menu. On first launch it asks for your TP-Link account and saves it to `~/.tplink_cloud`, readable only by you.
 
-To remove the app, run `packaging/install.sh --uninstall`. Your saved login stays in `~/.tplink_cloud`.
+To build the AppImage yourself, run `packaging/build-appimage.sh`. It builds in a Debian 13 container, so you need Podman or Docker, and writes `dist/DecoDesktop-<version>-x86_64.AppImage`. Then run `packaging/install.sh`, which installs the newest build from `dist/`.
+
+To remove the app, run `~/Applications/DecoDesktop-x86_64.AppImage --uninstall` (or `packaging/install.sh --uninstall` from a checkout). Your saved login stays in `~/.tplink_cloud`.
 
 To run the app from source instead, install PyGObject with GTK 4 and paramiko from your distribution, then run `./deco-desktop`. On Fedora, that's `sudo dnf install python3-gobject gtk4 python3-paramiko`.
 
